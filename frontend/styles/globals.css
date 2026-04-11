@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #faf8f4;
+  --bg-card: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-muted: #6b7280;
+  --accent: #b89b6b;
+  --border: #ede4d0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f5f0e8; }
+::-webkit-scrollbar-thumb { background: #ccb68a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #b89b6b; }
+
+/* Markdown prose styling */
+.prose h1, .prose h2, .prose h3 {
+  font-family: 'Playfair Display', serif;
+  color: #1a1a1a;
+}
+.prose ul { list-style: disc; padding-left: 1.25rem; }
+.prose ol { list-style: decimal; padding-left: 1.25rem; }
+.prose strong { color: #1a1a1a; font-weight: 600; }
+.prose code { 
+  background: #f5f0e8; 
+  padding: 0.1rem 0.3rem; 
+  border-radius: 4px; 
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.875em;
+}
+
+/* Loading dots animation */
+.typing-dots::after {
+  content: '●';
+  animation: typing 1.2s steps(4) infinite;
+}
+@keyframes typing {
+  0%   { content: '●'; }
+  33%  { content: '● ●'; }
+  66%  { content: '● ● ●'; }
+  100% { content: '●'; }
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Hide scrollbar for tab bars */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
