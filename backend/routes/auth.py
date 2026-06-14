@@ -1,99 +1,91 @@
-from fastapi import APIRouter, HTTPException, Depends
+import logging
+from datetime import datetime, timezone
+from fastapi import APIRouter, HTTPException, Depends, Response, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
-import sqlite3
 import os
-import json
-import hashlib
+import bcrypt
 import secrets
 import time
-from dotenv import load_dotenv
+import re
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from .limiter import limiter
+from .db import supabase
 
-load_dotenv()
+logger = logging.getLogger("atlas.auth")
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "travel.db")
-
-
-def get_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def init_users_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            email TEXT UNIQUE NOT NULL,
-            name TEXT,
-            avatar TEXT,
-            provider TEXT DEFAULT 'email',
-            password_hash TEXT,
-            plan TEXT DEFAULT 'free',
-            travel_memory TEXT DEFAULT '',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            last_login TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            token TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            expires_at REAL NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-
-init_users_db()
+MEMORY_MAX_LENGTH = 2000
 
 
 def hash_password(password: str) -> str:
-    salt = os.getenv("SECRET_KEY", "atlas_default_secret_2024")
-    return hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    return bcrypt.checkpw(password.encode(), password_hash.encode())
+
+
+def sanitize_text(text: str, max_length: int = MEMORY_MAX_LENGTH) -> str:
+    if not text:
+        return ""
+    text = text.strip()
+    text = re.sub(r"<[^>]*>", "", text)
+    text = text[:max_length]
+    return text
 
 
 def create_session(user_id: str) -> str:
     token = secrets.token_urlsafe(32)
-    expires_at = time.time() + (30 * 24 * 3600)  # 30 days
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
-        (token, user_id, expires_at)
-    )
-    conn.commit()
-    conn.close()
+    expires_at = time.time() + (30 * 24 * 3600)
+    supabase.table("sessions").insert({
+        "token": token,
+        "user_id": user_id,
+        "expires_at": expires_at,
+    }).execute()
     return token
+
+
+SESSION_COOKIE_NAME = "atlas_session"
+
+def set_session_cookie(response: Response, token: str, max_age: int = 30 * 24 * 3600):
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        max_age=max_age,
+        httponly=True,
+        samesite="lax",
+        secure=os.getenv("ENVIRONMENT") == "production",
+        path="/",
+    )
+
+def clear_session_cookie(response: Response):
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        samesite="lax",
+    )
 
 
 def get_user_from_token(token: str) -> Optional[dict]:
     if not token:
         return None
-    conn = get_db()
-    row = conn.execute(
-        """SELECT u.* FROM users u
-           JOIN sessions s ON s.user_id = u.id
-           WHERE s.token = ? AND s.expires_at > ?""",
-        (token, time.time())
-    ).fetchone()
-    conn.close()
-    return dict(row) if row else None
+    sess = supabase.table("sessions").select("*").eq("token", token).gt("expires_at", time.time()).execute()
+    if not sess.data:
+        return None
+    user = supabase.table("users").select("*").eq("id", sess.data[0]["user_id"]).execute()
+    return user.data[0] if user.data else None
 
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if not credentials:
         return None
-    user = get_user_from_token(credentials.credentials)
-    return user
+    return get_user_from_token(credentials.credentials)
 
 
 def require_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -107,50 +99,55 @@ def require_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
 
 # ── Models ────────────────────────────────────────────────────────────────────
 class RegisterRequest(BaseModel):
-    email: str
-    password: str
-    name: str
+    email: str = Field(min_length=5, max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(min_length=8, max_length=128)
+    name: str = Field(min_length=1, max_length=100)
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=1, max_length=128)
 
 
 class GoogleAuthRequest(BaseModel):
-    email: str
-    name: str
+    email: str = Field(max_length=255)
+    name: str = Field(max_length=100)
     avatar: Optional[str] = None
-    google_id: str
+    google_id_token: str
 
 
 class UpdateMemoryRequest(BaseModel):
     memory: str
 
+    @field_validator("memory")
+    @classmethod
+    def sanitize_memory(cls, v):
+        return sanitize_text(v)
+
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 @router.post("/register")
-async def register(req: RegisterRequest):
+@limiter.limit("5/minute")
+async def register(req: RegisterRequest, response: Response, request: Request):
     if len(req.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-    user_id = secrets.token_urlsafe(16)
-    password_hash = hash_password(req.password)
-
-    conn = get_db()
-    existing = conn.execute("SELECT id FROM users WHERE email = ?", (req.email,)).fetchone()
-    if existing:
-        conn.close()
+    existing = supabase.table("users").select("id").eq("email", req.email).execute()
+    if existing.data:
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    conn.execute(
-        "INSERT INTO users (id, email, name, password_hash, provider) VALUES (?, ?, ?, ?, ?)",
-        (user_id, req.email, req.name, password_hash, "email")
-    )
-    conn.commit()
-    conn.close()
+    user_id = secrets.token_urlsafe(16)
+    password_hash = hash_password(req.password)
+    supabase.table("users").insert({
+        "id": user_id,
+        "email": req.email,
+        "name": req.name,
+        "password_hash": password_hash,
+        "provider": "email",
+    }).execute()
 
     token = create_session(user_id)
+    set_session_cookie(response, token)
     return {
         "token": token,
         "user": {"id": user_id, "email": req.email, "name": req.name, "plan": "free", "avatar": None}
@@ -158,25 +155,39 @@ async def register(req: RegisterRequest):
 
 
 @router.post("/login")
-async def login(req: LoginRequest):
-    password_hash = hash_password(req.password)
-    conn = get_db()
-    row = conn.execute(
-        "SELECT * FROM users WHERE email = ? AND password_hash = ?",
-        (req.email, password_hash)
-    ).fetchone()
-
-    if not row:
-        conn.close()
+@limiter.limit("5/minute")
+async def login(req: LoginRequest, response: Response, request: Request):
+    result = supabase.table("users").select("*").eq("email", req.email).execute()
+    if not result.data or not result.data[0].get("password_hash"):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    conn.execute(
-        "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", (row["id"],)
-    )
-    conn.commit()
-    conn.close()
+    row = result.data[0]
+
+    password_valid = False
+    try:
+        password_valid = verify_password(req.password, row["password_hash"])
+    except Exception as e:
+        logger.error("Password verification error: %s", e)
+
+    if not password_valid:
+        import hashlib
+        secret = os.getenv("SECRET_KEY", "")
+        legacy_secret = os.getenv("LEGACY_HASH_SALT", secret)
+        for salt in (legacy_secret, "", secret, "atlas_default_secret_2024"):
+            legacy_hash = hashlib.sha256(f"{salt}{req.password}".encode()).hexdigest()
+            if legacy_hash == row["password_hash"]:
+                password_valid = True
+                new_hash = hash_password(req.password)
+                supabase.table("users").update({"password_hash": new_hash}).eq("id", row["id"]).execute()
+                break
+
+    if not password_valid:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    supabase.table("users").update({"last_login": datetime.now(timezone.utc).isoformat()}).eq("id", row["id"]).execute()
 
     token = create_session(row["id"])
+    set_session_cookie(response, token)
     return {
         "token": token,
         "user": {
@@ -190,29 +201,42 @@ async def login(req: LoginRequest):
 
 
 @router.post("/google")
-async def google_auth(req: GoogleAuthRequest):
-    conn = get_db()
-    row = conn.execute("SELECT * FROM users WHERE email = ?", (req.email,)).fetchone()
+@limiter.limit("5/minute")
+async def google_auth(req: GoogleAuthRequest, response: Response, request: Request):
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+    if google_client_id:
+        try:
+            id_info = id_token.verify_oauth2_token(
+                req.google_id_token, google_requests.Request(), google_client_id
+            )
+            if id_info.get("email") != req.email:
+                raise HTTPException(status_code=401, detail="Email mismatch in Google token")
+        except ValueError as e:
+            raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
+
+    result = supabase.table("users").select("*").eq("email", req.email).execute()
+    row = result.data[0] if result.data else None
 
     if row:
-        conn.execute(
-            "UPDATE users SET last_login = CURRENT_TIMESTAMP, name = ?, avatar = ? WHERE id = ?",
-            (req.name, req.avatar, row["id"])
-        )
-        conn.commit()
+        supabase.table("users").update({
+            "last_login": datetime.now(timezone.utc).isoformat(),
+            "name": req.name,
+            "avatar": req.avatar,
+        }).eq("id", row["id"]).execute()
         user_id = row["id"]
         plan = row["plan"]
     else:
         user_id = secrets.token_urlsafe(16)
         plan = "free"
-        conn.execute(
-            "INSERT INTO users (id, email, name, avatar, provider) VALUES (?, ?, ?, ?, ?)",
-            (user_id, req.email, req.name, req.avatar, "google")
-        )
-        conn.commit()
-
-    conn.close()
+        supabase.table("users").insert({
+            "id": user_id,
+            "email": req.email,
+            "name": req.name,
+            "avatar": req.avatar,
+            "provider": "google",
+        }).execute()
     token = create_session(user_id)
+    set_session_cookie(response, token)
     return {
         "token": token,
         "user": {"id": user_id, "email": req.email, "name": req.name, "plan": plan, "avatar": req.avatar}
@@ -220,34 +244,59 @@ async def google_auth(req: GoogleAuthRequest):
 
 
 @router.get("/me")
-async def get_me(user=Depends(require_user)):
+@limiter.limit("20/minute")
+async def get_me(request: Request, user=Depends(require_user)):
     return {
         "id": user["id"],
         "email": user["email"],
         "name": user["name"],
         "plan": user["plan"],
         "avatar": user["avatar"],
+        "provider": user.get("provider", "email"),
         "travel_memory": user.get("travel_memory", ""),
+        "created_at": user.get("created_at"),
+        "last_login": user.get("last_login"),
+    }
+
+
+@router.get("/check-cookie")
+@limiter.limit("20/minute")
+async def check_cookie(request: Request):
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        return {"authenticated": False}
+    user = get_user_from_token(token)
+    if not user:
+        return {"authenticated": False}
+    return {
+        "authenticated": True,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "plan": user["plan"],
+            "avatar": user["avatar"],
+            "provider": user.get("provider", "email"),
+            "travel_memory": user.get("travel_memory", ""),
+            "created_at": user.get("created_at"),
+            "last_login": user.get("last_login"),
+        }
     }
 
 
 @router.post("/logout")
-async def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
+@limiter.limit("20/minute")
+async def logout(request: Request, credentials: HTTPAuthorizationCredentials = Depends(security), response: Response = None):
     if credentials:
-        conn = get_db()
-        conn.execute("DELETE FROM sessions WHERE token = ?", (credentials.credentials,))
-        conn.commit()
-        conn.close()
+        supabase.table("sessions").delete().eq("token", credentials.credentials).execute()
+    if response:
+        clear_session_cookie(response)
     return {"message": "Logged out"}
 
 
 @router.put("/memory")
-async def update_memory(req: UpdateMemoryRequest, user=Depends(require_user)):
-    conn = get_db()
-    conn.execute(
-        "UPDATE users SET travel_memory = ? WHERE id = ?",
-        (req.memory, user["id"])
-    )
-    conn.commit()
-    conn.close()
+@limiter.limit("10/minute")
+async def update_memory(request: Request, req: UpdateMemoryRequest, user=Depends(require_user)):
+    cleaned = sanitize_text(req.memory)
+    supabase.table("users").update({"travel_memory": cleaned}).eq("id", user["id"]).execute()
     return {"message": "Memory updated"}

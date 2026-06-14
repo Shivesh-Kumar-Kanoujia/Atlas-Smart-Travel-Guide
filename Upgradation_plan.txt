@@ -1,0 +1,381 @@
+ATLAS AI TRAVEL GUIDE
+MAP ENHANCEMENT IMPLEMENTATION PLAN
+
+GOAL:
+Transform the current Leaflet + OpenStreetMap implementation into a modern travel intelligence map similar to Google Travel while remaining completely free.
+
+==================================================
+PHASE 1 — MAP UI & USER EXPERIENCE
+Priority: HIGH
+Time: 1-2 Days
+==================================================
+
+[ ] Create custom SVG markers
+    - Hotel marker
+    - Restaurant marker
+    - Attraction marker
+    - Hospital marker
+    - Airport marker
+    - Day-wise itinerary markers
+
+[ ] Replace default Leaflet popup UI
+    - Place image
+    - Place name
+    - Category
+    - Rating
+    - Action buttons
+
+[ ] Add map search bar
+    - Search city
+    - Search attraction
+    - Search landmark
+
+[ ] Add "My Location" button
+
+[ ] Add dark/light map toggle
+
+[ ] Improve fullscreen experience
+
+[ ] Add loading states while fetching locations
+
+[ ] Add empty state when no locations found
+
+[ ] Mobile responsiveness improvements
+
+DELIVERABLE:
+Modern travel map experience.
+
+==================================================
+PHASE 2 — AI ITINERARY VISUALIZATION
+Priority: VERY HIGH
+Time: 2-3 Days
+==================================================
+
+[ ] Create itinerary map layer
+
+[ ] Display day-wise trip markers
+
+Example:
+
+Day 1
+① Attraction A
+② Attraction B
+③ Attraction C
+
+[ ] Color-code itinerary markers
+
+Day 1 = Blue
+Day 2 = Green
+Day 3 = Orange
+Day 4 = Purple
+Day 5 = Red
+
+[ ] Integrate leaflet-routing-machine
+
+[ ] Draw routes between itinerary locations
+
+[ ] Auto zoom to itinerary route
+
+[ ] Add route summary card
+
+Show:
+- Total distance
+- Estimated travel time
+- Number of stops
+
+[ ] Create itinerary sidebar
+
+Show:
+- Day number
+- Places
+- Activities
+- Costs
+
+[ ] Synchronize itinerary with map
+
+Click itinerary item →
+Map zooms to location
+
+Click marker →
+Sidebar highlights activity
+
+DELIVERABLE:
+AI-generated trips visualized directly on the map.
+
+==================================================
+PHASE 3 — TIMELINE + MAP SYNC
+Priority: HIGH
+Time: 1-2 Days
+==================================================
+
+[ ] Create travel timeline component
+
+Example:
+
+09:00 Breakfast
+11:00 Museum
+14:00 Lunch
+18:00 Sunset Point
+
+[ ] Connect timeline with map
+
+Click timeline item →
+Fly to marker
+
+Click marker →
+Highlight timeline item
+
+[ ] Auto-scroll timeline when marker selected
+
+[ ] Mobile bottom-sheet version
+
+DELIVERABLE:
+Interactive itinerary experience.
+
+==================================================
+PHASE 4 — NEARBY DISCOVERY SYSTEM
+Priority: HIGH
+Time: 2-3 Days
+==================================================
+
+Use:
+OpenStreetMap Overpass API
+
+[ ] Nearby attractions
+
+[ ] Nearby restaurants
+
+[ ] Nearby hotels
+
+[ ] Nearby cafes
+
+[ ] Nearby hospitals
+
+[ ] Nearby ATMs
+
+[ ] Nearby pharmacies
+
+[ ] Radius search
+
+Options:
+- 500m
+- 1km
+- 5km
+- 10km
+
+[ ] Category filters
+
+Attractions
+Restaurants
+Hotels
+Hospitals
+ATMs
+
+[ ] Marker clustering for discovery results
+
+DELIVERABLE:
+Travel discovery platform.
+
+==================================================
+PHASE 5 — TRAVEL INTELLIGENCE LAYER
+Priority: MEDIUM
+Time: 2-4 Days
+==================================================
+
+[ ] Weather overlay integration
+
+Using:
+OpenWeather API
+
+Display:
+- Temperature
+- Rain
+- Wind
+- Conditions
+
+[ ] Show weather on marker popup
+
+[ ] Weather warnings
+
+[ ] Budget estimation layer
+
+Show:
+- Expensive zones
+- Budget zones
+
+[ ] Travel recommendation cards
+
+Example:
+"Best sunset point nearby"
+
+DELIVERABLE:
+Smart travel planning.
+
+==================================================
+PHASE 6 — SAVED MAPS
+Priority: MEDIUM
+Time: 1-2 Days
+==================================================
+
+DATABASE TABLE:
+saved_map_views
+
+[ ] Save map state
+
+Store:
+- Zoom level
+- Center coordinates
+- Active filters
+- Active route
+
+[ ] Load saved map views
+
+[ ] Rename saved maps
+
+[ ] Delete saved maps
+
+DELIVERABLE:
+Persistent map experience.
+
+==================================================
+PHASE 7 — SHAREABLE MAPS
+Priority: MEDIUM
+Time: 1-2 Days
+==================================================
+
+DATABASE TABLE:
+trip_shares
+
+[ ] Generate share link
+
+Example:
+atlas.app/map/abc123
+
+[ ] Public read-only map
+
+[ ] Shared itinerary route
+
+[ ] Shared attractions
+
+[ ] Shared timeline
+
+DELIVERABLE:
+Collaborative travel planning.
+
+==================================================
+PHASE 8 — ADVANCED MAP FEATURES
+Priority: LOW
+Time: 3-5 Days
+==================================================
+
+[ ] Heatmap layer
+
+Using:
+leaflet.heat
+
+Show:
+- Popular areas
+- Tourist hotspots
+
+[ ] Favorite locations
+
+[ ] Custom trip pins
+
+[ ] Map screenshots
+
+[ ] Export map as image
+
+DELIVERABLE:
+Premium map features.
+
+==================================================
+DATABASE TASKS
+==================================================
+
+[ ] Create table: map_locations
+
+Fields:
+- id
+- trip_id
+- name
+- latitude
+- longitude
+- category
+- day_number
+- sequence
+- created_at
+
+[ ] Create table: trip_routes
+
+Fields:
+- id
+- trip_id
+- route_data
+- distance
+- duration
+- created_at
+
+[ ] Create table: saved_map_views
+
+Fields:
+- id
+- user_id
+- map_state
+- created_at
+
+==================================================
+FREE APIS & LIBRARIES
+==================================================
+
+[ ] Leaflet
+[ ] OpenStreetMap
+[ ] Overpass API
+[ ] OSRM Routing
+[ ] leaflet.markercluster
+[ ] leaflet-routing-machine
+[ ] leaflet-fullscreen
+[ ] leaflet-gesture-handling
+[ ] leaflet.heat
+
+Cost:
+₹0/month
+
+==================================================
+SPRINT PLAN
+==================================================
+
+SPRINT 1
+[ ] Custom markers
+[ ] Better popups
+[ ] Search
+[ ] My location
+[ ] Theme toggle
+
+SPRINT 2
+[ ] Day-wise itinerary markers
+[ ] Route visualization
+[ ] Sidebar
+[ ] Route summary
+
+SPRINT 3
+[ ] Timeline sync
+[ ] Map sync
+[ ] Mobile timeline
+
+SPRINT 4
+[ ] Nearby attractions
+[ ] Nearby restaurants
+[ ] Nearby hospitals
+[ ] Radius filters
+
+SPRINT 5
+[ ] Weather overlay
+[ ] Travel intelligence cards
+
+SPRINT 6
+[ ] Saved maps
+[ ] Shared maps
+[ ] Heatmaps
+
+FINAL GOAL:
+A Google Travel-style interactive travel planning map built entirely with free tools and integrated with Atlas AI.

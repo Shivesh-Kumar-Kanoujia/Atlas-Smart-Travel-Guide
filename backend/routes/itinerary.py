@@ -1,42 +1,27 @@
-from fastapi import APIRouter, HTTPException
+import logging
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional
 import os
 import json
-import sqlite3
-from groq import Groq
-from dotenv import load_dotenv
+from groq import AsyncGroq
 
-load_dotenv()
+from .auth import get_current_user
+from .db import supabase
+from .limiter import limiter
+
+logger = logging.getLogger("atlas.itinerary")
 
 router = APIRouter()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "travel.db")
-
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def ensure_itinerary_column():
-    conn = get_db()
-    try:
-        conn.execute("ALTER TABLE trips ADD COLUMN itinerary TEXT DEFAULT '[]'")
-        conn.commit()
-    except Exception:
-        pass
-    conn.close()
-
-
-ensure_itinerary_column()
+client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 ITINERARY_PROMPT = """You are an expert travel planner. Generate a detailed, realistic day-by-day itinerary.
 
 Return ONLY a valid JSON array. No markdown, no explanation, just the JSON.
+
+Each day object MUST include real geographic latitude/longitude coordinates for the main activity location in each time slot (morning, afternoon, evening) and for the accommodation.
+Use coordinates that a mapping app would recognise (e.g. Eiffel Tower ≈ 48.8584, 2.2945).
 
 Format:
 [
@@ -50,23 +35,31 @@ Format:
       "activity": "Activity name",
       "description": "What to do and why it's special",
       "tip": "Practical tip",
-      "cost": "$10-20"
+      "cost": "$10-20",
+      "latitude": 48.8584,
+      "longitude": 2.2945
     }},
     "afternoon": {{
       "time": "14:00",
       "activity": "Activity name",
       "description": "What to do",
       "tip": "Practical tip",
-      "cost": "$5-15"
+      "cost": "$5-15",
+      "latitude": 48.8606,
+      "longitude": 2.3376
     }},
     "evening": {{
       "time": "19:00",
       "activity": "Dinner & Evening",
       "description": "Restaurant recommendation with dish to try",
       "tip": "Reservation needed? Best table?",
-      "cost": "$20-40"
+      "cost": "$20-40",
+      "latitude": 48.8534,
+      "longitude": 2.3488
     }},
     "accommodation": "Neighbourhood to stay in and why",
+    "accommodation_latitude": 48.8742,
+    "accommodation_longitude": 2.3470,
     "daily_budget": "$80-120",
     "local_tip": "One thing locals know that tourists miss"
   }}
@@ -79,7 +72,7 @@ Trip details:
 - Travel style/mood: {mood}
 - Notes: {notes}
 
-Generate exactly {days} days. Be specific — real street names, dish names, neighbourhoods. No generic advice."""
+Generate exactly {days} days. Be specific — real street names, dish names, neighbourhoods, and real coordinates. No generic advice."""
 
 
 class GenerateRequest(BaseModel):
@@ -92,7 +85,8 @@ class GenerateRequest(BaseModel):
 
 
 @router.post("/generate")
-async def generate_itinerary(req: GenerateRequest):
+@limiter.limit("5/minute")
+async def generate_itinerary(request: Request, req: GenerateRequest):
     if req.days < 1 or req.days > 14:
         raise HTTPException(status_code=400, detail="Days must be between 1 and 14")
 
@@ -105,7 +99,7 @@ async def generate_itinerary(req: GenerateRequest):
     )
 
     try:
-        completion = client.chat.completions.create(
+        completion = await client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=4000,
@@ -126,15 +120,9 @@ async def generate_itinerary(req: GenerateRequest):
         # Save to trip if trip_id provided
         if req.trip_id:
             try:
-                conn = get_db()
-                conn.execute(
-                    "UPDATE trips SET itinerary = ? WHERE id = ?",
-                    (json.dumps(itinerary), req.trip_id)
-                )
-                conn.commit()
-                conn.close()
-            except Exception:
-                pass
+                supabase.table("trips").update({"itinerary": json.dumps(itinerary)}).eq("id", req.trip_id).execute()
+            except Exception as e:
+                logger.warning("Failed to save itinerary to trip %s: %s", req.trip_id, e)
 
         return {
             "destination": req.destination,
@@ -143,23 +131,24 @@ async def generate_itinerary(req: GenerateRequest):
             "tokens_used": completion.usage.total_tokens,
         }
 
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         raise HTTPException(
             status_code=500,
-            detail=f"AI returned invalid JSON. Try again. Error: {str(e)}"
+            detail="AI returned invalid JSON. Try again."
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Itinerary generation failed")
+        raise HTTPException(status_code=500, detail="Failed to generate itinerary")
 
 
 @router.get("/{trip_id}")
-async def get_trip_itinerary(trip_id: int):
-    conn = get_db()
-    row = conn.execute("SELECT itinerary, name, destination FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    conn.close()
-    if not row:
+@limiter.limit("30/minute")
+async def get_trip_itinerary(request: Request, trip_id: int):
+    result = supabase.table("trips").select("itinerary, name, destination").eq("id", trip_id).execute()
+    if not result.data:
         raise HTTPException(status_code=404, detail="Trip not found")
 
+    row = result.data[0]
     itinerary = json.loads(row["itinerary"] or "[]")
     return {
         "trip_id": trip_id,
@@ -170,9 +159,7 @@ async def get_trip_itinerary(trip_id: int):
 
 
 @router.delete("/{trip_id}")
-async def clear_itinerary(trip_id: int):
-    conn = get_db()
-    conn.execute("UPDATE trips SET itinerary = '[]' WHERE id = ?", (trip_id,))
-    conn.commit()
-    conn.close()
+@limiter.limit("10/minute")
+async def clear_itinerary(request: Request, trip_id: int):
+    supabase.table("trips").update({"itinerary": json.dumps([])}).eq("id", trip_id).execute()
     return {"message": "Itinerary cleared"}

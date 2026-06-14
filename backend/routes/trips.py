@@ -1,45 +1,14 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel, Field
 from typing import List, Optional
-import sqlite3
 import json
-import os
 from datetime import datetime
 
+from .auth import get_current_user, require_user
+from .limiter import limiter
+from .db import supabase
+
 router = APIRouter()
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "travel.db")
-
-
-def get_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS trips (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            destination TEXT NOT NULL,
-            start_date TEXT,
-            end_date TEXT,
-            budget REAL DEFAULT 0,
-            spent REAL DEFAULT 0,
-            notes TEXT,
-            packing_list TEXT DEFAULT '[]',
-            expenses TEXT DEFAULT '[]',
-            status TEXT DEFAULT 'planned',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-
-init_db()
 
 
 class ExpenseItem(BaseModel):
@@ -58,13 +27,15 @@ class PackingItem(BaseModel):
 
 
 class TripCreate(BaseModel):
-    name: str
-    destination: str
+    name: str = Field(min_length=1, max_length=200)
+    destination: str = Field(min_length=1, max_length=200)
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-    budget: Optional[float] = 0
-    notes: Optional[str] = ""
-    status: Optional[str] = "planned"
+    budget: Optional[float] = Field(default=0, ge=0)
+    notes: Optional[str] = Field(default="", max_length=5000)
+    status: Optional[str] = Field(default="planned", max_length=50)
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class TripUpdate(BaseModel):
@@ -78,94 +49,99 @@ class TripUpdate(BaseModel):
     packing_list: Optional[List[dict]] = None
     expenses: Optional[List[dict]] = None
     status: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 def row_to_dict(row):
     d = dict(row)
     d["packing_list"] = json.loads(d.get("packing_list") or "[]")
     d["expenses"] = json.loads(d.get("expenses") or "[]")
+    d["itinerary"] = json.loads(d.get("itinerary") or "[]")
     return d
 
 
+def verify_ownership(trip_id: int, user_id: str):
+    result = supabase.table("trips").select("*").eq("id", trip_id).eq("user_id", user_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    return result.data[0]
+
+
 @router.get("/")
-async def get_trips():
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM trips ORDER BY created_at DESC").fetchall()
-    conn.close()
-    return [row_to_dict(r) for r in rows]
+@limiter.limit("30/minute")
+async def get_trips(request: Request, user=Depends(get_current_user)):
+    if user:
+        result = supabase.table("trips").select("*").eq("user_id", user["id"]).order("created_at", desc=True).execute()
+        return [row_to_dict(r) for r in result.data]
+    return []
 
 
 @router.get("/{trip_id}")
-async def get_trip(trip_id: int):
-    conn = get_db()
-    row = conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    conn.close()
-    if not row:
+@limiter.limit("30/minute")
+async def get_trip(request: Request, trip_id: int, user=Depends(get_current_user)):
+    if user:
+        result = supabase.table("trips").select("*").eq("id", trip_id).eq("user_id", user["id"]).execute()
+    else:
+        result = supabase.table("trips").select("*").eq("id", trip_id).execute()
+    if not result.data:
         raise HTTPException(status_code=404, detail="Trip not found")
-    return row_to_dict(row)
+    return row_to_dict(result.data[0])
 
 
 @router.post("/")
-async def create_trip(trip: TripCreate):
-    conn = get_db()
-    cursor = conn.execute(
-        "INSERT INTO trips (name, destination, start_date, end_date, budget, notes, status) VALUES (?,?,?,?,?,?,?)",
-        (trip.name, trip.destination, trip.start_date, trip.end_date, trip.budget, trip.notes, trip.status),
-    )
-    conn.commit()
-    trip_id = cursor.lastrowid
-    row = conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    conn.close()
-    return row_to_dict(row)
+@limiter.limit("30/minute")
+async def create_trip(request: Request, trip: TripCreate, user=Depends(require_user)):
+    result = supabase.table("trips").insert({
+        "user_id": user["id"],
+        "name": trip.name,
+        "destination": trip.destination,
+        "start_date": trip.start_date,
+        "end_date": trip.end_date,
+        "budget": trip.budget,
+        "notes": trip.notes,
+        "status": trip.status,
+        "latitude": trip.latitude,
+        "longitude": trip.longitude,
+    }).execute()
+    return row_to_dict(result.data[0])
 
 
 @router.put("/{trip_id}")
-async def update_trip(trip_id: int, trip: TripUpdate):
-    conn = get_db()
-    existing = conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    if not existing:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Trip not found")
+@limiter.limit("30/minute")
+async def update_trip(request: Request, trip_id: int, trip: TripUpdate, user=Depends(require_user)):
+    verify_ownership(trip_id, user["id"])
 
-    updates = {k: v for k, v in trip.dict().items() if v is not None}
+    updates = {k: v for k, v in trip.model_dump().items() if v is not None}
     if "packing_list" in updates:
         updates["packing_list"] = json.dumps(updates["packing_list"])
     if "expenses" in updates:
         updates["expenses"] = json.dumps(updates["expenses"])
-        # Auto-calculate spent
         expenses = trip.expenses or []
         updates["spent"] = sum(e.get("amount", 0) for e in expenses)
 
     if updates:
-        set_clause = ", ".join(f"{k} = ?" for k in updates)
-        conn.execute(f"UPDATE trips SET {set_clause} WHERE id = ?", (*updates.values(), trip_id))
-        conn.commit()
+        supabase.table("trips").update(updates).eq("id", trip_id).execute()
 
-    row = conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    conn.close()
-    return row_to_dict(row)
+    result = supabase.table("trips").select("*").eq("id", trip_id).execute()
+    return row_to_dict(result.data[0])
 
 
 @router.delete("/{trip_id}")
-async def delete_trip(trip_id: int):
-    conn = get_db()
-    existing = conn.execute("SELECT id FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    if not existing:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Trip not found")
-    conn.execute("DELETE FROM trips WHERE id = ?", (trip_id,))
-    conn.commit()
-    conn.close()
+@limiter.limit("10/minute")
+async def delete_trip(request: Request, trip_id: int, user=Depends(require_user)):
+    verify_ownership(trip_id, user["id"])
+    supabase.table("trips").delete().eq("id", trip_id).eq("user_id", user["id"]).execute()
     return {"message": "Trip deleted successfully", "id": trip_id}
 
 
 @router.post("/{trip_id}/expenses")
-async def add_expense(trip_id: int, expense: ExpenseItem):
-    conn = get_db()
-    row = conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    if not row:
-        conn.close()
+@limiter.limit("30/minute")
+async def add_expense(request: Request, trip_id: int, expense: ExpenseItem, user=Depends(require_user)):
+    result = supabase.table("trips").select("*").eq("id", trip_id).eq("user_id", user["id"]).execute()
+    if not result.data:
         raise HTTPException(status_code=404, detail="Trip not found")
+    row = result.data[0]
 
     expenses = json.loads(row["expenses"] or "[]")
     new_expense = {
@@ -178,25 +154,18 @@ async def add_expense(trip_id: int, expense: ExpenseItem):
     expenses.append(new_expense)
     spent = sum(e["amount"] for e in expenses)
 
-    conn.execute(
-        "UPDATE trips SET expenses = ?, spent = ? WHERE id = ?",
-        (json.dumps(expenses), spent, trip_id),
-    )
-    conn.commit()
-    conn.close()
+    supabase.table("trips").update({
+        "expenses": json.dumps(expenses),
+        "spent": spent,
+    }).eq("id", trip_id).execute()
+
     return new_expense
 
 
 @router.post("/{trip_id}/packing")
-async def update_packing_list(trip_id: int, items: List[PackingItem]):
-    conn = get_db()
-    existing = conn.execute("SELECT id FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    if not existing:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Trip not found")
-
+@limiter.limit("30/minute")
+async def update_packing_list(request: Request, trip_id: int, items: List[PackingItem], user=Depends(require_user)):
+    verify_ownership(trip_id, user["id"])
     packing = [{"id": str(i + 1), "item": it.item, "packed": it.packed, "category": it.category} for i, it in enumerate(items)]
-    conn.execute("UPDATE trips SET packing_list = ? WHERE id = ?", (json.dumps(packing), trip_id))
-    conn.commit()
-    conn.close()
+    supabase.table("trips").update({"packing_list": json.dumps(packing)}).eq("id", trip_id).execute()
     return {"packing_list": packing}

@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException, Query
-from groq import Groq
+import logging
+from fastapi import APIRouter, HTTPException, Query, Request
+from groq import AsyncGroq
 import os
-from dotenv import load_dotenv
+from .limiter import limiter
 
-load_dotenv()
+logger = logging.getLogger("atlas.emergency")
 
 router = APIRouter()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
 EMERGENCY_NUMBERS = {
     "US": {"police": "911", "ambulance": "911", "fire": "911", "tourist_helpline": "1-800-TRAVUSA"},
@@ -25,7 +26,8 @@ EMERGENCY_NUMBERS = {
 
 
 @router.get("/numbers")
-async def get_emergency_numbers(country_code: str = Query(..., description="ISO country code e.g. US, UK, IN")):
+@limiter.limit("30/minute")
+async def get_emergency_numbers(request: Request, country_code: str = Query(..., description="ISO country code e.g. US, UK, IN")):
     code = country_code.upper()
     data = EMERGENCY_NUMBERS.get(code)
     if not data:
@@ -34,7 +36,8 @@ async def get_emergency_numbers(country_code: str = Query(..., description="ISO 
 
 
 @router.get("/info")
-async def get_emergency_info(destination: str = Query(...)):
+@limiter.limit("10/minute")
+async def get_emergency_info(request: Request, destination: str = Query(...)):
     try:
         prompt = f"""Provide essential emergency and safety information for travelers visiting {destination}.
 Include:
@@ -47,7 +50,7 @@ Include:
 7. 24/7 tourist helpline if available
 Be concise and practical."""
 
-        completion = client.chat.completions.create(
+        completion = await client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=700,
@@ -57,4 +60,5 @@ Be concise and practical."""
             "info": completion.choices[0].message.content,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Emergency info fetch failed")
+        raise HTTPException(status_code=500, detail="Failed to fetch emergency information")

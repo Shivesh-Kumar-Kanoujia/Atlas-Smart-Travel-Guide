@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query
+import logging
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 import httpx
 import os
-from dotenv import load_dotenv
+from .limiter import limiter
 
-load_dotenv()
+logger = logging.getLogger("atlas.currency")
 
 router = APIRouter()
 EXCHANGE_API_KEY = os.getenv("EXCHANGE_API_KEY")
@@ -26,7 +27,8 @@ class ConvertRequest(BaseModel):
 
 
 @router.post("/convert")
-async def convert_currency(req: ConvertRequest):
+@limiter.limit("30/minute")
+async def convert_currency(request: Request, req: ConvertRequest):
     try:
         from_cur = req.from_currency.upper()
         to_cur = req.to_currency.upper()
@@ -65,11 +67,13 @@ async def convert_currency(req: ConvertRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Currency conversion failed")
+        raise HTTPException(status_code=500, detail="Currency conversion failed")
 
 
 @router.get("/rates")
-async def get_rates(base: str = Query("USD")):
+@limiter.limit("60/minute")
+async def get_rates(request: Request, base: str = Query("USD")):
     base = base.upper()
     if base not in FALLBACK_RATES:
         raise HTTPException(status_code=400, detail=f"Unsupported base currency: {base}")
@@ -80,5 +84,6 @@ async def get_rates(base: str = Query("USD")):
 
 
 @router.get("/currencies")
-async def list_currencies():
+@limiter.limit("60/minute")
+async def list_currencies(request: Request):
     return {"currencies": sorted(FALLBACK_RATES.keys())}

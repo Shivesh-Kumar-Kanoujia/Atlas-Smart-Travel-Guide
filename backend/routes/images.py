@@ -1,14 +1,15 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+import logging
+from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 from pydantic import BaseModel
 import base64
 import os
-from groq import Groq
-from dotenv import load_dotenv
+from groq import AsyncGroq
+from .limiter import limiter
 
-load_dotenv()
+logger = logging.getLogger("atlas.images")
 
 router = APIRouter()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
 IMAGE_SYSTEM_PROMPT = """You are an expert travel photographer and destination specialist.
 When shown a travel image, provide:
@@ -27,10 +28,11 @@ class ImageAnalysisRequest(BaseModel):
 
 
 @router.post("/analyze")
-async def analyze_image(request: ImageAnalysisRequest):
+@limiter.limit("5/minute")
+async def analyze_image(request: Request, req: ImageAnalysisRequest):
     try:
-        completion = client.chat.completions.create(
-            model="llama-3.2-11b-vision-preview",
+        completion = await client.chat.completions.create(
+            model=os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"),
             messages=[
                 {"role": "system", "content": IMAGE_SYSTEM_PROMPT},
                 {
@@ -39,10 +41,10 @@ async def analyze_image(request: ImageAnalysisRequest):
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": f"data:{request.media_type};base64,{request.image_base64}"
+                                "url": f"data:{req.media_type};base64,{req.image_base64}"
                             },
                         },
-                        {"type": "text", "text": request.question},
+                        {"type": "text", "text": req.question},
                     ],
                 },
             ],
@@ -53,11 +55,13 @@ async def analyze_image(request: ImageAnalysisRequest):
             "tokens_used": completion.usage.total_tokens,
         }
     except Exception as e:
+        logger.exception("Image analysis failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/upload")
-async def upload_and_analyze(file: UploadFile = File(...), question: str = "Describe this travel destination."):
+@limiter.limit("5/minute")
+async def upload_and_analyze(request: Request, file: UploadFile = File(...), question: str = "Describe this travel destination."):
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
 
@@ -68,8 +72,8 @@ async def upload_and_analyze(file: UploadFile = File(...), question: str = "Desc
     b64 = base64.b64encode(contents).decode("utf-8")
 
     try:
-        completion = client.chat.completions.create(
-            model="llama-3.2-11b-vision-preview",
+        completion = await client.chat.completions.create(
+            model=os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct"),
             messages=[
                 {"role": "system", "content": IMAGE_SYSTEM_PROMPT},
                 {
@@ -91,4 +95,5 @@ async def upload_and_analyze(file: UploadFile = File(...), question: str = "Desc
             "tokens_used": completion.usage.total_tokens,
         }
     except Exception as e:
+        logger.exception("Image upload analysis failed")
         raise HTTPException(status_code=500, detail=str(e))
