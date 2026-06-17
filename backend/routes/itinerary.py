@@ -6,7 +6,7 @@ import os
 import json
 from groq import AsyncGroq
 
-from .auth import get_current_user
+from .auth import get_current_user, require_user
 from .db import supabase
 from .limiter import limiter
 
@@ -143,12 +143,15 @@ async def generate_itinerary(request: Request, req: GenerateRequest):
 
 @router.get("/{trip_id}")
 @limiter.limit("30/minute")
-async def get_trip_itinerary(request: Request, trip_id: int):
-    result = supabase.table("trips").select("itinerary, name, destination").eq("id", trip_id).execute()
+async def get_trip_itinerary(request: Request, trip_id: int, user: dict = Depends(require_user)):
+    user_id = user.get("id")
+    result = supabase.table("trips").select("itinerary, name, destination, user_id").eq("id", trip_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Trip not found")
 
     row = result.data[0]
+    if row.get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this itinerary")
     itinerary = json.loads(row["itinerary"] or "[]")
     return {
         "trip_id": trip_id,
@@ -160,6 +163,12 @@ async def get_trip_itinerary(request: Request, trip_id: int):
 
 @router.delete("/{trip_id}")
 @limiter.limit("10/minute")
-async def clear_itinerary(request: Request, trip_id: int):
+async def clear_itinerary(request: Request, trip_id: int, user: dict = Depends(require_user)):
+    user_id = user.get("id")
+    trip = supabase.table("trips").select("user_id").eq("id", trip_id).execute()
+    if not trip.data:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if trip.data[0].get("user_id") != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this itinerary")
     supabase.table("trips").update({"itinerary": json.dumps([])}).eq("id", trip_id).execute()
     return {"message": "Itinerary cleared"}

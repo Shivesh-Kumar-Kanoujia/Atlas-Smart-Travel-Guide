@@ -31,7 +31,7 @@ export default function TravelCard({ trip, onEdit, onDelete, onSelect }) {
             <span className="text-sm text-muted-foreground truncate">{trip.destination}</span>
           </div>
         </div>
-        <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 ml-3 shrink-0', statusClass)}>
+        <Badge variant="outline" className={cn('text-xs px-1.5 py-0 ml-3 shrink-0', statusClass)}>
           {label}
         </Badge>
       </div>
@@ -70,13 +70,13 @@ export default function TravelCard({ trip, onEdit, onDelete, onSelect }) {
       <div className="flex gap-2 mt-4 pt-3 border-t border-border">
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(trip); }}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-muted-foreground bg-secondary hover:bg-accent rounded-lg transition-all"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium text-muted-foreground bg-secondary hover:bg-accent rounded-lg transition-all"
         >
           <Edit3 className="w-3.5 h-3.5" /> Edit
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(trip.id); }}
-          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 rounded-lg transition-all"
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 rounded-lg transition-all"
         >
           <Trash2 className="w-3.5 h-3.5" /> Delete
         </button>

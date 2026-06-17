@@ -1,7 +1,7 @@
 // @ts-nocheck
 /* eslint-disable @next/next/no-img-element */
 import { useState, useRef, useEffect } from 'react';
-import { Upload, Loader2, Sparkles, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, Loader2, Sparkles, X, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { analyzeImage } from '../lib/api';
 import toast from 'react-hot-toast';
@@ -13,6 +13,7 @@ export default function ImageAnalyzer() {
   const [preview, setPreview] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [question, setQuestion] = useState('Describe this travel destination and give me practical travel tips.');
   const fileRef = useRef(null);
   const previewRef = useRef(null);
@@ -34,6 +35,7 @@ export default function ImageAnalyzer() {
     previewRef.current = url;
     setPreview(url);
     setAnalysis(null);
+    setError(null);
   };
 
   const clearImage = () => {
@@ -49,6 +51,7 @@ export default function ImageAnalyzer() {
   const handleAnalyze = async () => {
     if (!image) return;
     setLoading(true);
+    setError(null);
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -57,7 +60,9 @@ export default function ImageAnalyzer() {
           const res = await analyzeImage(b64, image.type, question);
           setAnalysis(res.data.analysis);
         } catch (err) {
-          toast.error(err.response?.data?.detail || 'Analysis failed. Check your GROQ_API_KEY.');
+          const msg = err.response?.data?.detail || 'Analysis failed. Check your GROQ_API_KEY.';
+          toast.error(msg);
+          setError(msg);
         } finally {
           setLoading(false);
         }
@@ -65,6 +70,7 @@ export default function ImageAnalyzer() {
       reader.readAsDataURL(image);
     } catch {
       toast.error('Failed to read image');
+      setError('Failed to read the selected image file.');
       setLoading(false);
     }
   };
@@ -118,7 +124,13 @@ export default function ImageAnalyzer() {
             rows={2}
             placeholder="What do you want to know about this place?"
           />
-          <Button onClick={handleAnalyze} disabled={loading} className="w-full">
+          {error && (
+          <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-xl border border-destructive/20 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
+        <Button onClick={handleAnalyze} disabled={loading} className="w-full">
             {loading ? (
               <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Analyzing with Groq AI...</>
             ) : (
@@ -140,18 +152,7 @@ export default function ImageAnalyzer() {
         </div>
       )}
 
-      {!image && (
-        <div className="mt-6 grid grid-cols-3 gap-3 text-center">
-          {['Identify landmarks', 'Get travel tips', 'Photography advice'].map((t) => (
-            <div
-              key={t}
-              className="p-4 bg-card border border-border rounded-xl text-sm text-muted-foreground font-medium"
-            >
-              {t}
-            </div>
-          ))}
-        </div>
-      )}
+
     </div>
   );
 }

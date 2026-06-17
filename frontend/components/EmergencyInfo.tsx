@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState } from 'react';
-import { AlertTriangle, Phone, Loader2, Shield } from 'lucide-react';
+import { Phone, Loader2, Shield, AlertTriangle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { getEmergencyInfo } from '../lib/api';
 import toast from 'react-hot-toast';
@@ -16,17 +16,20 @@ export default function EmergencyInfo() {
   const [destination, setDestination] = useState('');
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleSearch = async (dest?: string) => {
     const q = (dest || destination).trim();
     if (!q) return;
     setLoading(true);
     setInfo(null);
+    setError(null);
     try {
       const res = await getEmergencyInfo(q);
       setInfo(res.data);
     } catch {
       toast.error('Failed to fetch emergency info. Check backend is running.');
+      setError('Failed to fetch emergency information. The AI service may be unavailable.');
     } finally {
       setLoading(false);
     }
@@ -80,6 +83,13 @@ export default function EmergencyInfo() {
           </button>
         ))}
       </div>
+
+      {error && (
+        <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-xl border border-destructive/20 flex items-center gap-2 mb-4">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {error}
+        </div>
+      )}
 
       {loading && (
         <div className="text-center py-12 text-muted-foreground">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Head from 'next/head';
 import AppLayout from '../components/layout/AppLayout';
+import DashboardHome from '../components/DashboardHome';
 import ChatBox from '../components/ChatBox';
 import TripManager from '../components/TripManager';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
@@ -12,10 +13,10 @@ import MapTab from '../components/MapTab';
 import PreferenceSettings from '../components/PreferenceSettings';
 import RecommendationsPanel from '../components/RecommendationsPanel';
 
-type TabKey = 'chat' | 'trips' | 'analytics' | 'weather' | 'currency' | 'images' | 'emergency' | 'map' | 'preferences';
+type TabKey = 'chat' | 'trips' | 'analytics' | 'weather' | 'currency' | 'images' | 'emergency' | 'map' | 'preferences' | 'dashboard';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<TabKey>('chat');
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const handleTabChange = (tab: string) => setActiveTab(tab as TabKey);
 
   return (
@@ -28,14 +29,15 @@ export default function Home() {
         <meta property="og:description" content="AI-powered travel companion for smart explorers — plan trips, track budgets, get AI recommendations, and stay safe anywhere in the world." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://atlas-travel.vercel.app" />
-        <meta property="og:image" content="https://atlas-travel.vercel.app/og-image.png" />
+        <meta property="og:image" content="/logo.svg" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="Atlas — Smart Travel Guide" />
-        <meta name="twitter:description" content="AI-powered travel companion for smart explorers." />
+        <meta name="twitter:description" content="AI-powered travel companion for smart explorers — plan trips, track budgets, get AI recommendations, and stay safe anywhere." />
         <link rel="canonical" href="https://atlas-travel.vercel.app" />
       </Head>
 
       <AppLayout activeTab={activeTab} onTabChange={handleTabChange}>
+        {activeTab === 'dashboard' && <DashboardHome onNavigate={handleTabChange} />}
         {activeTab === 'chat' && <ChatBox />}
         {activeTab === 'trips' && <TripManager />}
         {activeTab === 'analytics' && <AnalyticsDashboard />}

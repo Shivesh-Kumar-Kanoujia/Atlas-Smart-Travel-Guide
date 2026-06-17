@@ -9,6 +9,7 @@ from groq import AsyncGroq
 from .auth import get_current_user, require_user
 from .db import supabase
 from .limiter import limiter
+from .sanitize import sanitize
 
 logger = logging.getLogger("atlas.personalization")
 
@@ -23,7 +24,7 @@ EXTRACT_PROMPT = """You are a travel preference analyst. Analyze the following c
 Return ONLY a valid JSON object. No markdown, no explanation.
 
 Format:
-{
+{{
   "preferred_moods": ["adventurous", "cultural"],
   "preferred_budget": "mid-range",
   "favorite_destinations": ["Japan", "Italy"],
@@ -35,7 +36,7 @@ Format:
   "pace": "moderate",
   "past_trips_summary": "Has traveled to Southeast Asia and Europe",
   "summary": "A concise 2-3 sentence profile of this traveler"
-}
+}}
 
 Conversation History:
 {chat_history}
@@ -76,10 +77,19 @@ async def extract_preferences(request: Request, req: ExtractPreferencesRequest, 
         try:
             # Get recent conversations
             convs = supabase.table("conversations").select("id").eq("user_id", user_id).order("updated_at", desc=True).limit(5).execute()
+            conv_ids = [c["id"] for c in (convs.data or [])]
             chat_parts = []
-            for conv in (convs.data or []):
-                msgs = supabase.table("messages").select("role,content").eq("conversation_id", conv["id"]).order("created_at", asc=True).limit(10).execute()
-                for m in (msgs.data or []):
+            if conv_ids:
+                # Batch messages query — fetch messages for all conversations at once
+                all_msgs = (
+                    supabase.table("messages")
+                    .select("role,content,conversation_id")
+                    .in_("conversation_id", conv_ids)
+                    .order("created_at", asc=True)
+                    .limit(50)
+                    .execute()
+                )
+                for m in (all_msgs.data or []):
                     chat_parts.append(f"{m['role']}: {m['content'][:300]}")
             req.chat_history = "\n".join(chat_parts[:30])
 
@@ -210,15 +220,15 @@ async def update_preferences(request: Request, req: UpdatePreferencesRequest, us
     user_id = user.get("id")
 
     data = {
-        "preferred_moods": json.dumps(req.preferred_moods),
-        "preferred_budget": req.preferred_budget,
-        "favorite_destinations": json.dumps(req.favorite_destinations),
-        "bucket_list": json.dumps(req.bucket_list),
-        "travel_style": req.travel_style,
-        "interests": json.dumps(req.interests),
-        "dietary_preferences": req.dietary_preferences,
-        "accommodation_preference": req.accommodation_preference,
-        "pace": req.pace,
+        "preferred_moods": json.dumps([sanitize(m, 100) for m in req.preferred_moods]),
+        "preferred_budget": sanitize(req.preferred_budget, 50),
+        "favorite_destinations": json.dumps([sanitize(d, 200) for d in req.favorite_destinations]),
+        "bucket_list": json.dumps([sanitize(b, 200) for b in req.bucket_list]),
+        "travel_style": sanitize(req.travel_style, 500),
+        "interests": json.dumps([sanitize(i, 100) for i in req.interests]),
+        "dietary_preferences": sanitize(req.dietary_preferences, 200),
+        "accommodation_preference": sanitize(req.accommodation_preference, 200),
+        "pace": sanitize(req.pace, 50),
     }
 
     try:

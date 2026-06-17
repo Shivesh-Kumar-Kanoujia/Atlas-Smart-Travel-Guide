@@ -3,11 +3,12 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { PLACE_MARKERS, buildMarkerHtml } from '../lib/mapMarkers';
 import { buildPlacePopupHtml, buildTripPopupHtml } from '../lib/mapPopup';
 import MapWeatherOverlay from './MapWeatherOverlay';
+import toast from 'react-hot-toast';
 
-let leafletModule = null;
-async function getLeaflet() {
-  if (!leafletModule) leafletModule = await import('leaflet');
-  return leafletModule.default;
+let leafletPromise = null;
+function getLeaflet() {
+  if (!leafletPromise) leafletPromise = import('leaflet').then((m) => m.default);
+  return leafletPromise;
 }
 
 const TILE_LAYERS = {
@@ -45,6 +46,9 @@ export default function MapView({
   const clickMarkerRef = useRef(null);
   const layersControlRef = useRef(null);
   const routingControlRef = useRef(null);
+  const routingRef = useRef(false);
+  const onDirectionsReadyRef = useRef(onDirectionsReady);
+  onDirectionsReadyRef.current = onDirectionsReady;
   const myLocationMarkerRef = useRef(null);
   const myLocationCircleRef = useRef(null);
   const tileLayersRef = useRef({});
@@ -52,6 +56,20 @@ export default function MapView({
   const itineraryRoutesRef = useRef([]);
   const heatmapLayerRef = useRef(null);
   const heatmapVisibleRef = useRef(false);
+
+  // Stable refs for callback props to avoid stale closures
+  const onMarkerClickRef = useRef(onMarkerClick);
+  const onPlaceClickRef = useRef(onPlaceClick);
+  const onItineraryClickRef = useRef(onItineraryClick);
+  const onMapStateChangeRef = useRef(onMapStateChange);
+  onMarkerClickRef.current = onMarkerClick;
+  onPlaceClickRef.current = onPlaceClick;
+  onItineraryClickRef.current = onItineraryClick;
+  onMapStateChangeRef.current = onMapStateChange;
+
+  // Track previous data values for change detection
+  const prevTripsRef = useRef([]);
+  const prevPlacesRef = useRef([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -69,6 +87,9 @@ export default function MapView({
   const pinsLayerRef = useRef(null);
   const searchTimeoutRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pinDraft, setPinDraft] = useState(null);
 
   // Keyboard shortcut for search focus
   useEffect(() => {
@@ -166,10 +187,10 @@ export default function MapView({
       })
         .addTo(map)
         .bindPopup(
-          `<div style="font-family:'DM Sans',sans-serif;min-width:180px">
-            <div style="font-weight:600;font-size:14px;margin-bottom:6px">New Location</div>
-            <div style="font-size:12px;color:#666">${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}</div>
-            <div style="font-size:11px;color:#999;margin-top:4px">Drag to adjust &bull; Save in trip form</div>
+          `<div class="map-popup-container" style="min-width:180px">
+            <div class="map-popup-title-sm">New Location</div>
+            <div class="map-popup-coords">${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}</div>
+            <div class="map-popup-hint">Drag to adjust &bull; Save in trip form</div>
           </div>`
         )
         .openPopup();
@@ -180,7 +201,7 @@ export default function MapView({
       const c = map.getCenter();
       const state = { lat: c.lat, lng: c.lng, zoom: map.getZoom() };
       setMapCenter([c.lat, c.lng]);
-      if (onMapStateChange) onMapStateChange(state);
+      if (onMapStateChangeRef.current) onMapStateChangeRef.current(state);
     };
     map.on('load', updateCenter);
     map.on('moveend', updateCenter);
@@ -292,13 +313,7 @@ export default function MapView({
 
         const pulseIcon = L.divIcon({
           className: '',
-          html: `<div style="
-            width:20px;height:20px;
-            background:#1D9E75;
-            border:3px solid #fff;
-            border-radius:50%;
-            box-shadow:0 0 0 4px rgba(29,158,117,0.3);
-          "></div>`,
+          html: `<div class="map-pulse-dot" style="background:#1D9E75;box-shadow:0 0 0 4px rgba(29,158,117,0.3)"></div>`,
           iconSize: [20, 20],
           iconAnchor: [10, 10],
         });
@@ -394,7 +409,7 @@ export default function MapView({
     }
   }, []);
 
-  const updateTripMarkers = useCallback(async () => {
+  const updateTripMarkers = useCallback(async (skipFit = false) => {
     const map = mapInstanceRef.current;
     if (!map || typeof window === 'undefined') return;
 
@@ -422,16 +437,7 @@ export default function MapView({
 
       const icon = L.divIcon({
         className: '',
-        html: `<div style="
-          width:32px;height:32px;
-          background:${color};
-          border:3px solid #fff;
-          border-radius:50% 50% 50% 0;
-          transform:rotate(-45deg);
-          box-shadow:0 2px 8px rgba(0,0,0,0.25);
-          cursor:pointer;
-          transition:transform 0.2s;
-        "></div>`,
+        html: `<div class="map-trip-pin" style="background:${color}"></div>`,
         iconSize: [32, 32],
         iconAnchor: [16, 32],
         popupAnchor: [0, -36],
@@ -444,8 +450,9 @@ export default function MapView({
         className: 'custom-map-popup',
       });
 
-      if (onMarkerClick) {
-        marker.on('click', () => onMarkerClick(trip));
+      const cb = onMarkerClickRef.current;
+      if (cb) {
+        marker.on('click', () => cb(trip));
       }
 
       tripMarkersRef.current.addLayer(marker);
@@ -460,13 +467,14 @@ export default function MapView({
       }).addTo(map);
     }
 
-    if (coords.length) {
+    // Only fit bounds on initial load, not on every re-render
+    if (!skipFit && coords.length) {
       const bounds = L.latLngBounds(coords);
       map.fitBounds(bounds, { padding: [60, 60] });
     }
-  }, [trips, onMarkerClick]);
+  }, [trips]);
 
-  const updatePlaceMarkers = useCallback(async () => {
+  const updatePlaceMarkers = useCallback(async (skipFit = false) => {
     const map = mapInstanceRef.current;
     if (!map || typeof window === 'undefined') return;
 
@@ -504,18 +512,19 @@ export default function MapView({
         className: 'custom-map-popup',
       });
 
-      if (onPlaceClick) {
-        marker.on('click', () => onPlaceClick(place));
+      const cb = onPlaceClickRef.current;
+      if (cb) {
+        marker.on('click', () => cb(place));
       }
 
       placeMarkersRef.current.addLayer(marker);
     });
 
-    if (!trips.length && placeCoords.length) {
+    if (!skipFit && !trips.length && placeCoords.length) {
       const bounds = L.latLngBounds(placeCoords);
       map.fitBounds(bounds, { padding: [60, 60] });
     }
-  }, [places, trips.length, onPlaceClick]);
+  }, [places, trips.length]);
 
   const getItineraryItems = useCallback(() => {
     const items = [];
@@ -587,22 +596,7 @@ export default function MapView({
 
         const icon = L.divIcon({
           className: '',
-          html: `<div style="
-            width:28px;height:28px;
-            background:${color};
-            border:2px solid #fff;
-            border-radius:8px;
-            box-shadow:0 2px 8px rgba(0,0,0,0.25);
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            color:white;
-            font-size:11px;
-            font-weight:700;
-            font-family:'DM Sans',sans-serif;
-            cursor:pointer;
-            transition:transform 0.15s;
-          ">${seq}</div>`,
+          html: `<div class="map-itinerary-seq" style="background:${color}">${seq}</div>`,
           iconSize: [28, 28],
           iconAnchor: [14, 14],
           popupAnchor: [0, -16],
@@ -612,15 +606,15 @@ export default function MapView({
 
         const slotLabel = item.slot.charAt(0).toUpperCase() + item.slot.slice(1);
         marker.bindPopup(
-          `<div style="font-family:'DM Sans',sans-serif;min-width:190px">
-            <div style="height:3px;background:${color};border-radius:3px 3px 0 0;margin:-12px -12px 8px -12px"></div>
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          `<div class="map-popup-container" style="min-width:190px">
+            <div class="map-popup-color-bar" style="background:${color}"></div>
+            <div class="map-popup-row" style="gap:6px;margin-bottom:4px">
               <div style="width:18px;height:18px;border-radius:5px;background:${color};color:white;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700">${seq}</div>
-              <div style="font-size:10px;color:#888;font-weight:500">Day ${item.dayNumber} &middot; ${slotLabel}</div>
+              <div class="map-popup-label" style="font-weight:500">Day ${item.dayNumber} &middot; ${slotLabel}</div>
             </div>
-            <div style="font-weight:700;font-size:13px;color:#1a1a1a;margin-bottom:2px">${item.activity}</div>
-            ${item.description ? `<div style="font-size:10px;color:#666;margin-bottom:4px">${item.description}</div>` : ''}
-            <div style="display:flex;align-items:center;gap:8px;font-size:10px;color:#888">
+            <div class="map-popup-title" style="font-size:13px;margin-bottom:2px">${item.activity}</div>
+            ${item.description ? `<div class="map-popup-detail" style="margin-bottom:4px">${item.description}</div>` : ''}
+            <div class="map-popup-row" style="gap:8px;font-size:10px;color:#888">
               <span>⏰ ${item.time || ''}</span>
               ${item.cost ? `<span>💰 ${item.cost}</span>` : ''}
             </div>
@@ -628,9 +622,10 @@ export default function MapView({
           { maxWidth: 240, className: 'custom-map-popup' }
         );
 
-        marker.on('click', () => {
-          if (onItineraryClick) onItineraryClick(item.dayIdx, item.slot);
-        });
+        const icb = onItineraryClickRef.current;
+        if (icb) {
+          marker.on('click', () => icb(item.dayIdx, item.slot));
+        }
 
         itineraryMarkersRef.current.addLayer(marker);
       });
@@ -686,43 +681,52 @@ export default function MapView({
 
     if (!directions) return;
 
-    const L = await getLeaflet();
-    const Routing = (await import('leaflet-routing-machine')).default;
+    routingRef.current = true;
 
-    const waypoints = [
-      L.latLng(directions.startLat, directions.startLon),
-      L.latLng(directions.endLat, directions.endLon),
-    ];
+    try {
+      const L = await getLeaflet();
+      const Routing = (await import('leaflet-routing-machine')).default;
 
-    routingControlRef.current = Routing.control({
-      waypoints,
-      routeWhileDragging: true,
-      showAlternatives: true,
-      fitSelectedRoutes: true,
-      show: true,
-      lineOptions: {
-        styles: [
-          { color: '#1D9E75', weight: 5, opacity: 0.8 },
-          { color: '#1D9E75', weight: 3, opacity: 0.5, dashArray: '8 8' },
-        ],
-      },
-      plan: Routing.plan(waypoints, {
-        draggableWaypoints: true,
-        addWaypoints: false,
-      }),
-    }).addTo(map);
+      const waypoints = [
+        L.latLng(directions.startLat, directions.startLon),
+        L.latLng(directions.endLat, directions.endLon),
+      ];
 
-    if (onDirectionsReady) {
-      routingControlRef.current.on('routesfound', (e) => {
-        const route = e.routes[0];
-        onDirectionsReady({
-          distance: route.summary.totalDistance,
-          duration: route.summary.totalTime,
-          instructions: route.instructions,
+      routingControlRef.current = Routing.control({
+        waypoints,
+        routeWhileDragging: true,
+        showAlternatives: true,
+        fitSelectedRoutes: true,
+        show: true,
+        lineOptions: {
+          styles: [
+            { color: '#1D9E75', weight: 5, opacity: 0.8 },
+            { color: '#1D9E75', weight: 3, opacity: 0.5, dashArray: '8 8' },
+          ],
+        },
+        plan: Routing.plan(waypoints, {
+          draggableWaypoints: true,
+          addWaypoints: false,
+        }),
+      }).addTo(map);
+
+      const cb = onDirectionsReadyRef.current;
+      if (cb) {
+        routingControlRef.current.on('routesfound', (e) => {
+          const route = e.routes[0];
+          cb({
+            distance: route.summary.totalDistance,
+            duration: route.summary.totalTime,
+            instructions: route.instructions,
+          });
         });
-      });
+      }
+    } catch (err) {
+      toast.error('Failed to get directions: ' + (err.message || 'unknown error'));
+    } finally {
+      routingRef.current = false;
     }
-  }, [directions, onDirectionsReady]);
+  }, [directions]);
 
   const highlightPlace = useCallback(async () => {
     const map = mapInstanceRef.current;
@@ -737,13 +741,7 @@ export default function MapView({
     if (selectedPlace.lat && selectedPlace.lon) {
       const pulseIcon = L.divIcon({
         className: '',
-        html: `<div style="
-          width:40px;height:40px;
-          background:rgba(29,158,117,0.3);
-          border:3px solid #1D9E75;
-          border-radius:50%;
-          animation:map-pulse 1.5s infinite;
-        "></div>`,
+        html: `<div class="map-highlight-pulse"></div>`,
         iconSize: [40, 40],
         iconAnchor: [20, 20],
       });
@@ -773,20 +771,7 @@ export default function MapView({
 
     const pulseIcon = L.divIcon({
       className: '',
-      html: `<div style="
-        width:44px;height:44px;
-        background:rgba(55,138,221,0.2);
-        border:3px solid ${target.color};
-        border-radius:50%;
-        animation:map-pulse 1.5s infinite;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-      "><div style="
-        width:8px;height:8px;
-        border-radius:50%;
-        background:${target.color};
-      "></div></div>`,
+      html: `<div class="map-highlight-pulse-inner" style="background:rgba(55,138,221,0.2);border:3px solid ${target.color}"><div class="map-pulse-inner-dot" style="background:${target.color}"></div></div>`,
       iconSize: [44, 44],
       iconAnchor: [22, 22],
     });
@@ -800,15 +785,21 @@ export default function MapView({
   }, [initMap]);
 
   useEffect(() => {
-    if (mapInstanceRef.current) {
-      updateTripMarkers();
-    }
+    if (!mapInstanceRef.current) return;
+    const prev = prevTripsRef.current;
+    const same = prev.length === trips.length && prev.every((t, i) => t.id === trips[i]?.id && t.latitude === trips[i]?.latitude && t.longitude === trips[i]?.longitude);
+    prevTripsRef.current = trips;
+    if (same) return;
+    updateTripMarkers(prev.length > 0);
   }, [trips, updateTripMarkers]);
 
   useEffect(() => {
-    if (mapInstanceRef.current) {
-      updatePlaceMarkers();
-    }
+    if (!mapInstanceRef.current) return;
+    const prev = prevPlacesRef.current;
+    const same = prev.length === places.length && prev.every((p, i) => (p.id || p.name) === (places[i]?.id || places[i]?.name));
+    prevPlacesRef.current = places;
+    if (same) return;
+    updatePlaceMarkers(prev.length > 0);
   }, [places, updatePlaceMarkers]);
 
   useEffect(() => {
@@ -872,11 +863,13 @@ export default function MapView({
       const marker = L.marker([pin.lat, pin.lng], { icon })
         .addTo(pinsLayerRef.current)
         .bindPopup(
-          `<div style="font-family:'DM Sans',sans-serif;min-width:160px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:4px">${pin.label || 'Pinned Location'}</div>
-            <div style="font-size:11px;color:#888">${pin.lat.toFixed(4)}, ${pin.lng.toFixed(4)}</div>
+          `<div class="map-popup-container" style="min-width:180px">
+            <div class="map-pin-popup-title">${pin.label || 'Pinned Location'}</div>
+            ${pin.category ? `<div style="font-size:11px;color:#888;margin-bottom:4px;font-weight:500;">${pin.category}</div>` : ''}
+            <div class="map-pin-coords">${pin.lat.toFixed(4)}, ${pin.lng.toFixed(4)}</div>
+            ${pin.notes ? `<div style="font-size:12px;margin-top:4px;color:#555;border-top:1px solid #eee;padding-top:4px;">${pin.notes}</div>` : ''}
             <button data-pin-id="${pinId}" class="map-delete-pin-btn"
-              style="margin-top:6px;padding:2px 8px;font-size:11px;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer;color:#E74C3C">
+              style="margin-top:8px;padding:6px 12px;font-size:11px;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer;color:#E74C3C;width:100%">
               Delete Pin
             </button>
           </div>`
@@ -908,9 +901,8 @@ export default function MapView({
 
   const handleMapClick = useCallback((e) => {
     if (!pinMode) return;
-    const name = prompt('Name this pinned location:', 'My Pin');
-    if (name === null) return;
-    setPins((prev) => [...prev, { lat: e.latlng.lat, lng: e.latlng.lng, label: name.trim() || 'My Pin', id: Date.now() }]);
+    setPinDraft({ lat: e.latlng.lat, lng: e.latlng.lng });
+    setPinModalOpen(true);
     setPinMode(false);
   }, [pinMode]);
 
@@ -938,6 +930,7 @@ export default function MapView({
   useEffect(() => {
     const currentMapRef = mapRef.current;
     return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -1150,6 +1143,55 @@ export default function MapView({
           </svg>
           <div className="map-empty-title">No destinations yet</div>
           <div className="map-empty-desc">Add a trip or search for places to get started</div>
+        </div>
+      )}
+
+      {/* Pin Modal */}
+      {pinModalOpen && pinDraft && (
+        <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4">
+          <div className="bg-card w-full max-w-sm rounded-xl shadow-2xl border border-border p-5 animate-in zoom-in-95">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Save Location</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const label = (formData.get('label')).trim() || 'My Pin';
+              const category = formData.get('category');
+              const notes = (formData.get('notes')).trim();
+              setPins(prev => [...prev, { 
+                lat: pinDraft.lat, 
+                lng: pinDraft.lng, 
+                label, 
+                category, 
+                notes, 
+                id: Date.now() 
+              }]);
+              setPinModalOpen(false);
+              setPinDraft(null);
+            }} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Location Name</label>
+                <input name="label" required autoFocus defaultValue="My Pin" className="w-full text-sm bg-secondary border border-border rounded-lg px-3 py-2 outline-none focus:border-primary text-foreground" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Category</label>
+                <select name="category" className="w-full text-sm bg-secondary border border-border rounded-lg px-3 py-2 outline-none focus:border-primary text-foreground">
+                  <option value="General">General</option>
+                  <option value="Restaurant">Restaurant</option>
+                  <option value="Attraction">Attraction</option>
+                  <option value="Hotel">Hotel</option>
+                  <option value="Shopping">Shopping</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-foreground block mb-1">Notes</label>
+                <textarea name="notes" rows={3} placeholder="Add some details..." className="w-full text-sm bg-secondary border border-border rounded-lg px-3 py-2 outline-none focus:border-primary resize-none text-foreground" />
+              </div>
+              <div className="flex gap-2 justify-end pt-2">
+                <button type="button" onClick={() => { setPinModalOpen(false); setPinDraft(null); }} className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+                <button type="submit" className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90">Save Location</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -55,7 +55,7 @@ export default function ItinerarySidebar({
           <MapPin className="w-3.5 h-3.5 text-primary" />
           Itinerary
         </div>
-        <div className="text-[10px] text-muted-foreground mt-0.5">
+        <div className="text-xs text-muted-foreground mt-0.5">
           {itinerary.length} day{itinerary.length > 1 ? 's' : ''} &middot; {flatItems.length} stops
         </div>
       </div>
@@ -74,19 +74,19 @@ export default function ItinerarySidebar({
               {/* Day header */}
               <button
                 onClick={() => toggleDay(dayIdx)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/50 transition-colors text-left"
+                className="w-full flex items-center gap-2 px-3 py-3 hover:bg-accent/50 transition-colors text-left"
               >
                 <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-bold shrink-0"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
                   style={{ backgroundColor: color }}
                 >
                   {day.day}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-medium text-foreground truncate">{day.title}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">{day.theme}</div>
+                  <div className="text-xs font-medium text-foreground truncate">{day.title}</div>
+                  <div className="text-xs text-muted-foreground truncate">{day.theme}</div>
                 </div>
-                <div className="text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-secondary shrink-0">
+                <div className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-secondary shrink-0">
                   {day.daily_budget}
                 </div>
               </button>
@@ -107,7 +107,7 @@ export default function ItinerarySidebar({
                         onClick={() => hasCoords && onItemClick && onItemClick(dayIdx, slot, s)}
                         disabled={!hasCoords}
                         className={cn(
-                          'w-full flex items-start gap-2 px-3 py-1.5 transition-colors text-left',
+                          'w-full flex items-start gap-2 px-3 py-3 transition-colors text-left',
                           isSelected
                             ? 'bg-accent border-l-2 border-l-primary'
                             : 'hover:bg-accent/30 border-l-2 border-l-transparent',
@@ -119,18 +119,18 @@ export default function ItinerarySidebar({
                           <div className="w-0.5 h-4 rounded-full" style={{ backgroundColor: cfg.dot }} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[11px] font-medium text-foreground truncate">{s.activity}</div>
-                          <div className="text-[9px] text-muted-foreground mt-0.5 line-clamp-1">{s.description}</div>
+                          <div className="text-xs font-medium text-foreground truncate">{s.activity}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{s.description}</div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[9px] text-muted-foreground">{s.time}</span>
+                            <span className="text-xs text-muted-foreground">{s.time}</span>
                             {s.cost && (
-                              <span className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                              <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                                 <DollarSign className="w-2.5 h-2.5" />
                                 {s.cost}
                               </span>
                             )}
                             {hasCoords && (
-                              <span className="text-[9px] text-primary flex items-center gap-0.5">
+                              <span className="text-xs text-primary flex items-center gap-0.5">
                                 <MapPin className="w-2.5 h-2.5" />
                                 View
                               </span>
@@ -146,7 +146,7 @@ export default function ItinerarySidebar({
                     <div className="flex items-start gap-2 px-3 py-1.5 opacity-60">
                       <Bed className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[10px] text-foreground truncate">Stay: {day.accommodation}</div>
+                        <div className="text-xs text-foreground truncate">Stay: {day.accommodation}</div>
                       </div>
                     </div>
                   )}
@@ -154,7 +154,7 @@ export default function ItinerarySidebar({
                   {day.local_tip && (
                     <div className="mx-3 mt-1 p-1.5 bg-forest-500/5 border border-forest-500/10 rounded-lg flex gap-1.5">
                       <Lightbulb className="w-2.5 h-2.5 text-forest-500 shrink-0 mt-0.5" />
-                      <div className="text-[9px] text-forest-500 leading-relaxed">{day.local_tip}</div>
+                      <div className="text-xs text-forest-500 leading-relaxed">{day.local_tip}</div>
                     </div>
                   )}
                 </div>

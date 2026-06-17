@@ -5,9 +5,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 import os
 import json
-import re
 from groq import AsyncGroq
 from .limiter import limiter
+from .sanitize import sanitize
 
 logger = logging.getLogger("atlas.chat")
 
@@ -49,14 +49,6 @@ class ChatRequest(BaseModel):
     destination: Optional[str] = None
     user_id: Optional[str] = None
     memory: Optional[str] = None
-
-
-def sanitize(val: str, max_len: int = 2000) -> str:
-    if not val:
-        return ""
-    val = val.strip()[:max_len]
-    val = re.sub(r"<[^>]*>", "", val)
-    return val
 
 
 def build_messages(request: ChatRequest):

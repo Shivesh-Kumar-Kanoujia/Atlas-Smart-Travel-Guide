@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 import httpx
 import os
 from .limiter import limiter
+from .cache import get_cache, set_cache, cache_key
 
 logger = logging.getLogger("atlas.weather")
 
@@ -13,6 +14,11 @@ BASE_URL = "https://api.openweathermap.org/data/2.5"
 @router.get("/")
 @limiter.limit("20/minute")
 async def get_weather(request: Request, city: str = Query(..., description="City name")):
+    cache_key_val = cache_key("weather", "city", city.lower().strip())
+    cached = get_cache(cache_key_val)
+    if cached:
+        return cached
+
     api_key = os.getenv("OPENWEATHER_API_KEY")
     if not api_key:
         logger.warning("OPENWEATHER_API_KEY not set, returning mock data")
@@ -46,7 +52,7 @@ async def get_weather(request: Request, city: str = Query(..., description="City
             resp.raise_for_status()
             data = resp.json()
 
-        return {
+        result = {
             "city": data["name"],
             "country": data["sys"]["country"],
             "temperature": round(data["main"]["temp"]),
@@ -57,6 +63,8 @@ async def get_weather(request: Request, city: str = Query(..., description="City
             "wind_speed": data["wind"]["speed"],
             "visibility": data.get("visibility", 0),
         }
+        set_cache(cache_key_val, result, ttl=300)
+        return result
     except HTTPException:
         raise
     except httpx.TimeoutException:
@@ -73,6 +81,11 @@ async def get_weather_by_coords(
     lat: float = Query(...),
     lon: float = Query(...),
 ):
+    cache_key_val = cache_key("weather", "coords", f"{lat:.2f},{lon:.2f}")
+    cached = get_cache(cache_key_val)
+    if cached:
+        return cached
+
     api_key = os.getenv("OPENWEATHER_API_KEY")
     if not api_key:
         return {
@@ -95,7 +108,7 @@ async def get_weather_by_coords(
                 raise HTTPException(status_code=502, detail="Weather API key is invalid or expired")
             resp.raise_for_status()
             data = resp.json()
-        return {
+        result = {
             "temperature": round(data["main"]["temp"]),
             "feels_like": round(data["main"]["feels_like"]),
             "humidity": data["main"]["humidity"],
@@ -105,6 +118,8 @@ async def get_weather_by_coords(
             "visibility": data.get("visibility", 0),
             "city": data["name"],
         }
+        set_cache(cache_key_val, result, ttl=300)
+        return result
     except HTTPException:
         raise
     except httpx.TimeoutException:
@@ -116,6 +131,11 @@ async def get_weather_by_coords(
 @router.get("/forecast")
 @limiter.limit("20/minute")
 async def get_forecast(request: Request, city: str = Query(...), days: int = Query(5, le=7)):
+    cache_key_val = cache_key("forecast", city.lower().strip(), str(days))
+    cached = get_cache(cache_key_val)
+    if cached:
+        return cached
+
     api_key = os.getenv("OPENWEATHER_API_KEY")
     if not api_key:
         return {"city": city, "forecast": [], "mock": True}
@@ -145,7 +165,9 @@ async def get_forecast(request: Request, city: str = Query(...), days: int = Que
                     "humidity": item["main"]["humidity"],
                 }
 
-        return {"city": data["city"]["name"], "forecast": list(daily.values())[:days]}
+        result = {"city": data["city"]["name"], "forecast": list(daily.values())[:days]}
+        set_cache(cache_key_val, result, ttl=300)
+        return result
     except HTTPException:
         raise
     except httpx.TimeoutException:

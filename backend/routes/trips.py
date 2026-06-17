@@ -7,6 +7,7 @@ from datetime import datetime
 from .auth import get_current_user, require_user
 from .limiter import limiter
 from .db import supabase
+from .sanitize import sanitize
 
 router = APIRouter()
 
@@ -70,11 +71,23 @@ def verify_ownership(trip_id: int, user_id: str):
 
 @router.get("/")
 @limiter.limit("30/minute")
-async def get_trips(request: Request, user=Depends(get_current_user)):
-    if user:
-        result = supabase.table("trips").select("*").eq("user_id", user["id"]).order("created_at", desc=True).execute()
-        return [row_to_dict(r) for r in result.data]
-    return []
+async def get_trips(
+    request: Request,
+    limit: int = 100,
+    user=Depends(get_current_user),
+):
+    if not user:
+        return []
+    limit = max(1, min(limit, 500))
+    result = (
+        supabase.table("trips")
+        .select("*")
+        .eq("user_id", user["id"])
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return [row_to_dict(r) for r in result.data]
 
 
 @router.get("/{trip_id}")
@@ -94,12 +107,12 @@ async def get_trip(request: Request, trip_id: int, user=Depends(get_current_user
 async def create_trip(request: Request, trip: TripCreate, user=Depends(require_user)):
     result = supabase.table("trips").insert({
         "user_id": user["id"],
-        "name": trip.name,
-        "destination": trip.destination,
+        "name": sanitize(trip.name, 200),
+        "destination": sanitize(trip.destination, 200),
         "start_date": trip.start_date,
         "end_date": trip.end_date,
         "budget": trip.budget,
-        "notes": trip.notes,
+        "notes": sanitize(trip.notes, 5000),
         "status": trip.status,
         "latitude": trip.latitude,
         "longitude": trip.longitude,
@@ -112,7 +125,16 @@ async def create_trip(request: Request, trip: TripCreate, user=Depends(require_u
 async def update_trip(request: Request, trip_id: int, trip: TripUpdate, user=Depends(require_user)):
     verify_ownership(trip_id, user["id"])
 
-    updates = {k: v for k, v in trip.model_dump().items() if v is not None}
+    updates = {}
+    for k, v in trip.model_dump().items():
+        if v is None:
+            continue
+        if k in ("name", "destination"):
+            updates[k] = sanitize(v, 200)
+        elif k == "notes":
+            updates[k] = sanitize(v, 5000)
+        else:
+            updates[k] = v
     if "packing_list" in updates:
         updates["packing_list"] = json.dumps(updates["packing_list"])
     if "expenses" in updates:

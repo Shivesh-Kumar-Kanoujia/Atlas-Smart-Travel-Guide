@@ -62,16 +62,5 @@ export const PLACE_MARKERS: Record<string, { color: string; svg: string }> = {
 };
 
 export function buildMarkerHtml(cfg: { color: string; svg: string }): string {
-  return `<div style="
-    width:32px;height:32px;
-    background:${cfg.color};
-    border:3px solid #fff;
-    border-radius:10px;
-    box-shadow:0 2px 8px rgba(0,0,0,0.25);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-    transition:transform 0.15s;
-  ">${cfg.svg}</div>`;
+  return `<div class="map-marker-icon" style="background:${cfg.color}">${cfg.svg}</div>`;
 }

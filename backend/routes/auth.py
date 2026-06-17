@@ -8,11 +8,11 @@ import os
 import bcrypt
 import secrets
 import time
-import re
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from .limiter import limiter
 from .db import supabase
+from .sanitize import sanitize as sanitize_text
 
 logger = logging.getLogger("atlas.auth")
 
@@ -28,15 +28,6 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode(), password_hash.encode())
-
-
-def sanitize_text(text: str, max_length: int = MEMORY_MAX_LENGTH) -> str:
-    if not text:
-        return ""
-    text = text.strip()
-    text = re.sub(r"<[^>]*>", "", text)
-    text = text[:max_length]
-    return text
 
 
 def create_session(user_id: str) -> str:
@@ -122,7 +113,7 @@ class UpdateMemoryRequest(BaseModel):
     @field_validator("memory")
     @classmethod
     def sanitize_memory(cls, v):
-        return sanitize_text(v)
+        return sanitize_text(v, MEMORY_MAX_LENGTH)
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -172,8 +163,8 @@ async def login(req: LoginRequest, response: Response, request: Request):
     if not password_valid:
         import hashlib
         secret = os.getenv("SECRET_KEY", "")
-        legacy_secret = os.getenv("LEGACY_HASH_SALT", secret)
-        for salt in (legacy_secret, "", secret, "atlas_default_secret_2024"):
+        legacy_secret = os.getenv("LEGACY_HASH_SALT", "")
+        for salt in [s for s in (legacy_secret, secret) if s]:
             legacy_hash = hashlib.sha256(f"{salt}{req.password}".encode()).hexdigest()
             if legacy_hash == row["password_hash"]:
                 password_valid = True
@@ -297,6 +288,6 @@ async def logout(request: Request, credentials: HTTPAuthorizationCredentials = D
 @router.put("/memory")
 @limiter.limit("10/minute")
 async def update_memory(request: Request, req: UpdateMemoryRequest, user=Depends(require_user)):
-    cleaned = sanitize_text(req.memory)
+    cleaned = sanitize_text(req.memory, MEMORY_MAX_LENGTH)
     supabase.table("users").update({"travel_memory": cleaned}).eq("id", user["id"]).execute()
     return {"message": "Memory updated"}

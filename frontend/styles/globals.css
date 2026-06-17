@@ -9,6 +9,7 @@
 @import "leaflet-fullscreen/dist/leaflet.fullscreen.css";
 @import "leaflet-gesture-handling/dist/leaflet-gesture-handling.css";
 @import "leaflet-geosearch/assets/css/leaflet.css";
+@import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
 :root {
   --bg-primary: #faf8f4;
@@ -551,4 +552,197 @@ body {
   color: #fff;
   font-family: 'DM Sans', sans-serif;
   font-weight: 600;
+}
+
+/* Map popup shared styles */
+.map-popup-container {
+  font-family: 'DM Sans', 'Inter', sans-serif;
+  min-width: 200px;
+  max-width: 240px;
+}
+.map-marker-icon {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.map-marker-icon:hover {
+  transform: scale(1.1);
+}
+.map-pulse-dot {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(29,158,117,0.3);
+}
+.map-trip-pin {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.map-itinerary-seq {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.map-highlight-pulse {
+  width: 40px;
+  height: 40px;
+  background: rgba(29,158,117,0.3);
+  border: 3px solid #1D9E75;
+  border-radius: 50%;
+  animation: map-pulse 1.5s infinite;
+}
+.map-highlight-pulse-inner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  animation: map-pulse 1.5s infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-pulse-inner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.map-popup-title-sm {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.map-popup-coords {
+  font-size: 12px;
+  color: #666;
+}
+.map-popup-hint {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+}
+.map-pin-popup-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.map-pin-coords {
+  font-size: 11px;
+  color: #888;
+}
+.map-popup-color-bar {
+  height: 4px;
+  border-radius: 3px 3px 0 0;
+  margin: -12px -12px 8px -12px;
+}
+.map-popup-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary, #1a1a1a);
+  margin-bottom: 1px;
+}
+.map-popup-label {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+}
+.map-popup-detail {
+  font-size: 10px;
+  color: var(--text-muted, #666);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.map-popup-btn-primary {
+  flex: 1;
+  padding: 5px;
+  border: none;
+  border-radius: 6px;
+  font-size: 10px;
+  color: white;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+.map-popup-btn-secondary {
+  flex: 1;
+  padding: 5px;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 6px;
+  background: white;
+  font-size: 10px;
+  color: var(--text-primary, #333);
+  cursor: pointer;
+  font-family: inherit;
+}
+.map-popup-btn-icon {
+  width: 28px;
+  height: 26px;
+  border: 1px solid var(--border, #e0e0e0);
+  border-radius: 6px;
+  background: white;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.map-popup-card {
+  flex: 1;
+  background: var(--bg-card-alt, #f5f0e8);
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: center;
+}
+.map-popup-card-label {
+  font-size: 9px;
+  color: var(--text-muted, #888);
+}
+.map-popup-card-value {
+  font-size: 12px;
+  font-weight: 600;
+}
+.map-popup-star-filled {
+  color: #e8a317;
+  font-size: 13px;
+}
+.map-popup-star-empty {
+  color: #ddd;
+  font-size: 13px;
+}
+.map-popup-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.map-popup-badge {
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  background: var(--bg-secondary, #f0f0f0);
+  padding: 1px 6px;
+  border-radius: 4px;
 }

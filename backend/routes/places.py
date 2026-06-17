@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Optional
 import httpx
 from .limiter import limiter
+from .cache import get_cache, set_cache, cache_key
 
 logger = logging.getLogger("atlas.places")
 
@@ -10,6 +11,10 @@ router = APIRouter()
 
 # Overpass API endpoint (free, no auth)
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_FALLBACKS = [
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+]
 
 # Map of place categories to OSM tags
 PLACE_CATEGORIES = {
@@ -55,6 +60,11 @@ async def get_nearby_places(
     if radius < 100 or radius > 10000:
         raise HTTPException(status_code=400, detail="Radius must be between 100 and 10000 meters")
 
+    ck = cache_key("places", f"{lat:.3f}", f"{lon:.3f}", str(radius), category or "all", str(limit))
+    cached = get_cache(ck)
+    if cached:
+        return cached
+
     tags = PLACE_CATEGORIES.get(category)
     if category and not tags:
         raise HTTPException(
@@ -70,25 +80,31 @@ async def get_nearby_places(
       {tag_filter}
     );
     out body {limit};
-    >;
-    out skel qt;
     """
 
-    try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(
-                OVERPASS_URL,
-                data={"data": overpass_query},
-                headers={"User-Agent": "AtlasTravelGuide/2.0"},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Overpass API timed out. Try a smaller radius.")
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=502, detail=f"Overpass API error: {e.response.status_code}")
-    except Exception as e:
-        logger.exception("Nearby places fetch failed")
+    urls = [OVERPASS_URL] + OVERPASS_FALLBACKS
+    last_exc = None
+    for url in urls:
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.post(
+                    url,
+                    data={"data": overpass_query},
+                    headers={"User-Agent": "AtlasTravelGuide/2.0"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                last_exc = None
+                break
+        except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as e:
+            last_exc = e
+            logger.warning("Overpass API %s failed: %s", url, e)
+            continue
+    if last_exc:
+        if isinstance(last_exc, httpx.TimeoutException):
+            raise HTTPException(status_code=504, detail="Overpass API timed out. Try a smaller radius.")
+        if isinstance(last_exc, httpx.HTTPStatusError):
+            raise HTTPException(status_code=502, detail=f"Overpass API error: {last_exc.response.status_code}")
         raise HTTPException(status_code=500, detail="Failed to fetch nearby places")
 
     elements = data.get("elements", [])
@@ -120,7 +136,7 @@ async def get_nearby_places(
             "description": _get_description(tags),
         })
 
-    return {
+    result = {
         "lat": lat,
         "lon": lon,
         "radius": radius,
@@ -128,6 +144,8 @@ async def get_nearby_places(
         "count": len(places),
         "places": places,
     }
+    set_cache(ck, result, ttl=600)
+    return result
 
 
 def _get_place_type(tags: dict) -> str:

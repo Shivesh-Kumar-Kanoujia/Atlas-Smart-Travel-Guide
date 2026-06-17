@@ -205,7 +205,7 @@ export default function AnalyticsDashboard() {
           </div>
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-[120px]">
-              <label className="text-[10px] text-muted-foreground block mb-1">Trip</label>
+              <label className="text-xs text-muted-foreground block mb-1">Trip</label>
               <select
                 value={expenseTripId}
                 onChange={(e) => setExpenseTripId(e.target.value)}
@@ -219,7 +219,7 @@ export default function AnalyticsDashboard() {
               </select>
             </div>
             <div className="w-24">
-              <label className="text-[10px] text-muted-foreground block mb-1">Category</label>
+              <label className="text-xs text-muted-foreground block mb-1">Category</label>
               <select
                 value={expenseCategory}
                 onChange={(e) => setExpenseCategory(e.target.value)}
@@ -231,7 +231,7 @@ export default function AnalyticsDashboard() {
               </select>
             </div>
             <div className="w-24">
-              <label className="text-[10px] text-muted-foreground block mb-1">Amount ($)</label>
+              <label className="text-xs text-muted-foreground block mb-1">Amount ($)</label>
               <input
                 type="number"
                 value={expenseAmount}
@@ -241,7 +241,7 @@ export default function AnalyticsDashboard() {
               />
             </div>
             <div className="flex-1 min-w-[100px]">
-              <label className="text-[10px] text-muted-foreground block mb-1">Description</label>
+              <label className="text-xs text-muted-foreground block mb-1">Description</label>
               <input
                 value={expenseDesc}
                 onChange={(e) => setExpenseDesc(e.target.value)}

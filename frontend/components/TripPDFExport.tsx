@@ -1,16 +1,18 @@
 // @ts-nocheck
 import { useRef, useState } from 'react';
-import { FileDown, Loader2 } from 'lucide-react';
+import { FileDown, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/button';
 import toast from 'react-hot-toast';
 import { cn } from '../lib/utils';
 
 export default function TripPDFExport({ trip }: { trip: any }) {
   const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState(null);
   const contentRef = useRef(null);
 
   const handleExport = async () => {
     setExporting(true);
+    setError(null);
     try {
       const { default: jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
@@ -140,24 +142,33 @@ export default function TripPDFExport({ trip }: { trip: any }) {
     } catch (err) {
       console.error('PDF export error:', err);
       toast.error('Failed to export PDF. Try again.');
+      setError('PDF export failed. The trip data may be too large.');
     } finally {
       setExporting(false);
     }
   };
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={handleExport}
-      disabled={exporting}
-    >
-      {exporting ? (
-        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-      ) : (
-        <FileDown className="w-3.5 h-3.5 mr-1.5" />
+    <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleExport}
+        disabled={exporting}
+      >
+        {exporting ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <FileDown className="w-3.5 h-3.5 mr-1.5" />
+        )}
+        {exporting ? 'Exporting...' : 'PDF'}
+      </Button>
+      {error && (
+        <span className="text-xs text-destructive flex items-center gap-1">
+          <AlertTriangle className="w-3 h-3" />
+          {error}
+        </span>
       )}
-      {exporting ? 'Exporting...' : 'PDF'}
-    </Button>
+    </div>
   );
 }

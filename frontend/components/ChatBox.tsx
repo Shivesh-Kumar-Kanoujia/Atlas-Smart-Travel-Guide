@@ -268,73 +268,90 @@ export default function ChatBox() {
   const isFirstMessage = messages.length <= 1 || (messages.length === 1 && messages[0].role === 'assistant');
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] max-w-5xl mx-auto gap-0">
+    <div className="flex h-[calc(100vh-8rem)] h-[calc(100dvh-8rem)] max-w-5xl mx-auto gap-0">
       {/* Conversation sidebar */}
       {user && (
-        <div className={cn(
-          'flex flex-col border-r border-border bg-card transition-all duration-200 overflow-hidden shrink-0',
-          sidebarOpen ? 'w-56' : 'w-0'
-        )}>
-          <div className="p-3 border-b border-border">
-            <button
-              onClick={handleNewChat}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-all"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Chat
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-            {conversations.map(conv => (
-              <div
-                key={conv.id}
-                onClick={() => selectConversation(conv.id)}
-                className={cn(
-                  'group flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all text-xs',
-                  activeConvId === conv.id
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                )}
+        <>
+          {/* Mobile overlay backdrop */}
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 z-30 bg-black/20 backdrop-blur-sm md:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+          <div className={cn(
+            'flex flex-col border-r border-border bg-card transition-all duration-200 overflow-hidden shrink-0',
+            'md:relative md:z-0',
+            sidebarOpen
+              ? 'w-56 fixed left-0 top-14 bottom-0 z-40 md:static md:w-56'
+              : 'w-0'
+          )}>
+            <div className="p-3 border-b border-border">
+              <button
+                onClick={handleNewChat}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:opacity-90 transition-all"
               >
-                <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate flex-1">{conv.title}</span>
-                <button
-                  onClick={(e) => handleDeleteConv(e, conv.id)}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
+                <Plus className="w-4 h-4" />
+                New Chat
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+              {conversations.map(conv => (
+                <div
+                  key={conv.id}
+                  onClick={() => {
+                    selectConversation(conv.id);
+                    // Close sidebar on mobile after selection
+                    if (window.innerWidth < 768) setSidebarOpen(false);
+                  }}
+                  className={cn(
+                    'group flex items-center gap-2 px-3 py-3 rounded-lg cursor-pointer transition-all text-xs',
+                    activeConvId === conv.id
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
                 >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-            {conversations.length === 0 && (
-              <p className="text-[10px] text-muted-foreground text-center py-4">No conversations yet</p>
-            )}
+                  <MessageSquare className="w-4 h-4 shrink-0" />
+                  <span className="truncate flex-1">{conv.title}</span>
+                  <button
+                    onClick={(e) => handleDeleteConv(e, conv.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {conversations.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">No conversations yet</p>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Toggle sidebar */}
       {user && (
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="flex items-center justify-center w-5 border-r border-border bg-card hover:bg-accent transition-colors shrink-0"
+          className="flex items-center justify-center w-8 md:w-5 h-8 md:h-auto border-r border-border bg-card hover:bg-accent transition-colors shrink-0"
           title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
         >
-          {sidebarOpen ? <ChevronLeft className="w-3 h-3 text-muted-foreground" /> : <ChevronRight className="w-3 h-3 text-muted-foreground" />}
+          {sidebarOpen ? <ChevronLeft className="w-4 h-4 md:w-3 md:h-3 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 md:w-3 md:h-3 text-muted-foreground" />}
         </button>
       )}
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0 px-4">
         {/* Mood & Budget chips */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap shrink-0 pt-1">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-3 shrink-0 pt-1">
           <div className="flex gap-1 flex-wrap">
             {MOODS.map(m => (
               <button
                 key={m}
                 onClick={() => setMood(m)}
                 className={cn(
-                  'px-2.5 py-1 rounded-full text-xs font-medium capitalize transition-all',
+                  'px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs font-medium capitalize transition-all',
                   mood === m
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-secondary text-secondary-foreground hover:bg-accent'
@@ -344,13 +361,13 @@ export default function ChatBox() {
               </button>
             ))}
           </div>
-          <div className="flex gap-1 items-center ml-auto">
+          <div className="flex gap-1 items-center sm:ml-auto">
             {BUDGETS.map(b => (
               <button
                 key={b}
                 onClick={() => setBudget(b)}
                 className={cn(
-                  'px-2.5 py-1 rounded-full text-xs font-medium capitalize transition-all',
+                  'px-3 py-1.5 md:px-2.5 md:py-1 rounded-full text-xs font-medium capitalize transition-all',
                   budget === b
                     ? 'bg-foreground/10 text-foreground ring-1 ring-foreground/20'
                     : 'bg-secondary text-secondary-foreground hover:bg-accent'
@@ -361,10 +378,10 @@ export default function ChatBox() {
             ))}
             <button
               onClick={clearChat}
-              className="ml-1 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+              className="ml-1 p-2 md:p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
               title="Clear chat"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
             </button>
           </div>
         </div>
@@ -387,18 +404,18 @@ export default function ChatBox() {
                 >
                   <div
                     className={cn(
-                      'w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5',
+                      'w-8 h-8 md:w-7 md:h-7 rounded-full flex-shrink-0 flex items-center justify-center mt-0.5',
                       msg.role === 'user'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-gradient-to-br from-foreground/80 to-foreground text-background'
                     )}
                   >
-                    {msg.role === 'user' ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+                    {msg.role === 'user' ? <User className="w-4 h-4 md:w-3.5 md:h-3.5" /> : <Bot className="w-4 h-4 md:w-3.5 md:h-3.5" />}
                   </div>
 
                   <div
                     className={cn(
-                      'max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed',
+                      'max-w-[90%] md:max-w-[85%] px-3 py-2.5 md:px-4 md:py-3 rounded-2xl text-sm leading-relaxed',
                       msg.role === 'user'
                         ? 'bg-primary text-primary-foreground rounded-tr-sm'
                         : 'bg-card text-card-foreground border border-border rounded-tl-sm shadow-sm'
@@ -423,8 +440,8 @@ export default function ChatBox() {
               {/* Loading skeleton */}
               {loading && !messages[messages.length - 1]?.content && (
                 <div className="flex gap-3">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-foreground/80 to-foreground flex items-center justify-center">
-                    <Bot className="w-3.5 h-3.5 text-background" />
+                  <div className="w-8 h-8 md:w-7 md:h-7 rounded-full bg-gradient-to-br from-foreground/80 to-foreground flex items-center justify-center">
+                    <Bot className="w-4 h-4 md:w-3.5 md:h-3.5 text-background" />
                   </div>
                   <div className="bg-card border border-border px-4 py-3 rounded-2xl rounded-tl-sm shadow-sm">
                     <div className="flex gap-1.5">
@@ -442,14 +459,14 @@ export default function ChatBox() {
 
         {/* Starter prompts */}
         {isFirstMessage && !loading && !convLoading && (
-          <div className="grid grid-cols-2 gap-2 mb-3 shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 shrink-0">
             {STARTERS.map(s => (
               <button
                 key={s}
                 onClick={() => handleSend(s)}
                 className="text-left p-3 bg-card border border-border rounded-xl text-xs text-card-foreground/70 hover:border-primary/30 hover:bg-accent/50 transition-all line-clamp-2"
               >
-                <Sparkles className="w-3 h-3 text-primary inline mr-1.5 mb-0.5" />
+                <Sparkles className="w-3.5 h-3.5 md:w-3 md:h-3 text-primary inline mr-1.5 mb-0.5" />
                 {s}
               </button>
             ))}
@@ -457,31 +474,31 @@ export default function ChatBox() {
         )}
 
         {/* Input bar */}
-        <div className="flex gap-2 bg-card border border-border rounded-2xl p-1.5 shadow-sm shrink-0 mb-1">
+        <div className="flex gap-2 bg-card border border-border rounded-2xl p-2 md:p-1.5 shadow-sm shrink-0 mb-1">
           <input
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend('')}
             placeholder="Ask me about any destination..."
-            className="flex-1 px-3 py-2.5 bg-transparent text-sm text-foreground placeholder-muted-foreground outline-none"
+            className="flex-1 px-3 py-3 md:py-2.5 bg-transparent text-sm text-foreground placeholder-muted-foreground outline-none"
           />
           <button
             onClick={() => handleSend('')}
             disabled={!input.trim() || loading}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-all flex items-center gap-2 shrink-0"
+            className="px-5 py-3 md:px-4 md:py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-all flex items-center gap-2 shrink-0"
           >
             <Send className="w-4 h-4" />
           </button>
         </div>
 
         {user ? (
-          <p className="text-center text-[10px] text-muted-foreground shrink-0">
+          <p className="text-center text-xs text-muted-foreground shrink-0">
             Signed in as <span className="font-medium text-foreground/70">{user.name}</span>
             {conversations.length > 0 && ` · ${conversations.length} conversation${conversations.length !== 1 ? 's' : ''}`}
           </p>
         ) : (
-          <p className="text-center text-[10px] text-muted-foreground shrink-0">
+          <p className="text-center text-xs text-muted-foreground shrink-0">
             Sign in to save your chat history
           </p>
         )}

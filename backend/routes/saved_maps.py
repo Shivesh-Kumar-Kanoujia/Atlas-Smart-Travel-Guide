@@ -33,15 +33,21 @@ def _require_user(user):
 
 @router.get("/")
 @limiter.limit("30/minute")
-async def list_saved_maps(request: Request, user: dict = Depends(get_current_user)):
+async def list_saved_maps(
+    request: Request,
+    limit: int = 100,
+    user: dict = Depends(get_current_user),
+):
     if not user:
         return {"maps": []}
     uid = user["id"]
+    limit = max(1, min(limit, 500))
     try:
         result = supabase.table("saved_map_views") \
             .select("id, name, trip_id, created_at, updated_at") \
             .eq("user_id", uid) \
             .order("updated_at", desc=True) \
+            .limit(limit) \
             .execute()
         return {"maps": result.data or []}
     except Exception as e:

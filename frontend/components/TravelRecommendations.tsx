@@ -112,7 +112,7 @@ export default function TravelRecommendations({ places = [], weather = null }) {
 
   return (
     <div className="px-3 py-2 border-b border-border">
-      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
         <Lightbulb className="w-3 h-3" />
         Travel Tips
       </div>
@@ -130,16 +130,17 @@ export default function TravelRecommendations({ places = [], weather = null }) {
               <rec.icon className="w-3 h-3" style={{ color: rec.color }} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-semibold" style={{ color: rec.color }}>
+              <div className="text-xs font-semibold" style={{ color: rec.color }}>
                 {rec.title}
               </div>
-              <div className="text-[9px] text-muted-foreground leading-relaxed mt-0.5">
+              <div className="text-xs text-muted-foreground leading-relaxed mt-0.5">
                 {rec.description}
               </div>
             </div>
             <button
               onClick={() => setDismissed((prev) => new Set(prev).add(rec.id))}
-              className="absolute top-1 right-1 text-muted-foreground/40 hover:text-muted-foreground text-[9px] opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute top-1 right-1 p-1.5 text-muted-foreground/40 hover:text-muted-foreground text-xs md:opacity-0 md:group-hover:opacity-100 transition-opacity rounded hover:bg-black/5"
+              aria-label="Dismiss tip"
             >
               ✕
             </button>

@@ -43,3 +43,7 @@ coverage/
 # Cache
 .cache/
 *.tsbuildinfo
+
+# Design exports (keep .pen files)
+designs/*.png
+designs/*.pdf

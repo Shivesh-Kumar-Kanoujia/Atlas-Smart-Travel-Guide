@@ -4,6 +4,7 @@ import { useAuth } from '../../lib/auth';
 import AuthModal from '../AuthModal';
 import toast from 'react-hot-toast';
 import { cn } from '../../lib/utils';
+import AtlasLogo from '../AtlasLogo';
 
 interface NavItem {
   id: string;
@@ -12,6 +13,7 @@ interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: Compass },
   { id: 'chat', label: 'AI Guide', icon: MessageSquare },
   { id: 'trips', label: 'My Trips', icon: MapPin },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -45,12 +47,10 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2.5 px-4 h-16 border-b border-border shrink-0">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-          <Compass className="w-5 h-5 text-primary-foreground" />
-        </div>
+      <div className="flex items-center gap-2 px-4 h-16 border-b border-border shrink-0">
+        <AtlasLogo size={30} />
         <span className="font-display font-semibold text-lg text-foreground tracking-tight">Atlas</span>
-        <span className="text-[10px] text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded-full ml-auto">
+        <span className="text-xs text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded-full ml-auto">
           v2.0
         </span>
       </div>
@@ -63,7 +63,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               key={item.id}
               onClick={() => handleTabClick(item.id)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
+                'w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-150',
                 activeTab === item.id
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -94,7 +94,7 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             </div>
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
+              className="w-full flex items-center gap-2 px-3 py-3 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
             >
               <LogOut className="w-3.5 h-3.5" />
               Sign out
@@ -118,14 +118,13 @@ export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-background border-b border-border z-40 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
-            <Compass className="w-4 h-4 text-primary-foreground" />
-          </div>
+          <AtlasLogo size={26} />
           <span className="font-display font-semibold text-foreground">Atlas</span>
         </div>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-2 rounded-lg hover:bg-accent transition-all"
+          className="p-3 rounded-lg hover:bg-accent transition-all"
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 110" fill="none">
+  <!-- Icon -->
+  <g transform="translate(10,7)">
+    <circle cx="48" cy="48" r="44" stroke="#10B981" strokeWidth="3.5" fill="none"/>
+    <circle cx="48" cy="48" r="35" stroke="#0F766E" strokeWidth="0.6" opacity="0.2" fill="none"/>
+    <path d="M48 14 L22 76" stroke="#10B981" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    <path d="M48 14 L74 76" stroke="#10B981" strokeWidth="6.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    <line x1="29" y1="47" x2="67" y2="47" stroke="#10B981" strokeWidth="6.5" strokeLinecap="round"/>
+    <path d="M48 0 L52 6 L50 6 L50 14 L46 14 L46 6 L44 6Z" fill="#10B981"/>
+    <path d="M48 43 L54 49 L48 55 L42 49Z" fill="#D4A017"/>
+  </g>
+  <!-- Text -->
+  <text x="116" y="56" fontFamily="'DM Sans','Helvetica Neue',Arial,sans-serif" fontSize="36" fontWeight="700" fill="#1a1a1a" letterSpacing="0.5">Atlas</text>
+  <text x="116" y="76" fontFamily="'DM Sans','Helvetica Neue',Arial,sans-serif" fontSize="10" fontWeight="400" fill="#64748B" letterSpacing="4.5">SMART TRAVEL</text>
+</svg>

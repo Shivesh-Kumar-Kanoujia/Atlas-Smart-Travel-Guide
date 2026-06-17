@@ -35,16 +35,19 @@ export default function MapWeatherOverlay({ mapCenter, onClose }) {
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [error, setError] = useState(null);
 
   const fetchWeather = useCallback(async () => {
     if (!mapCenter || loading) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await getWeatherByCoords(mapCenter[0], mapCenter[1]);
       setWeather(res.data);
       setVisible(true);
     } catch {
       setWeather(null);
+      setError('Failed to load weather data');
     } finally {
       setLoading(false);
     }
@@ -63,6 +66,18 @@ export default function MapWeatherOverlay({ mapCenter, onClose }) {
     );
   }
 
+  if (error) {
+    return (
+      <div className="map-weather-panel">
+        <div className="flex items-center gap-2 text-xs text-destructive mb-2">
+          <AlertTriangle className="w-3 h-3 shrink-0" />
+          {error}
+        </div>
+        <button onClick={fetchWeather} className="text-xs text-primary hover:text-primary/80">Retry</button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="map-weather-panel">
@@ -76,10 +91,10 @@ export default function MapWeatherOverlay({ mapCenter, onClose }) {
   const iconCfg = WEATHER_ICONS[weather.icon] || WEATHER_ICONS['01d'];
   const WeatherIcon = iconCfg.icon;
   const warning = getWeatherWarning(weather.temperature, weather.wind_speed, weather.description);
-  const warningColors = {
-    danger: { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5' },
-    warning: { bg: '#fffbeb', text: '#d97706', border: '#fcd34d' },
-    info: { bg: '#eff6ff', text: '#2563eb', border: '#93c5fd' },
+  const warningClasses = {
+    danger: 'bg-red-50 text-red-600 border-red-300 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800',
+    warning: 'bg-amber-50 text-amber-600 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800',
+    info: 'bg-blue-50 text-blue-600 border-blue-300 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800',
   };
 
   return (
@@ -93,17 +108,17 @@ export default function MapWeatherOverlay({ mapCenter, onClose }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold text-foreground">{weather.temperature}°C</div>
-          <div className="text-[10px] text-muted-foreground truncate">{weather.description}</div>
+          <div className="text-xs text-muted-foreground truncate">{weather.description}</div>
         </div>
         {weather.city && (
-          <div className="text-[9px] text-muted-foreground truncate max-w-[80px] text-right">{weather.city}</div>
+          <div className="text-xs text-muted-foreground truncate max-w-[80px] text-right">{weather.city}</div>
         )}
         <button onClick={() => { setVisible(false); setWeather(null); if (onClose) onClose(); }} className="text-muted-foreground hover:text-foreground ml-1">
           ✕
         </button>
       </div>
 
-      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <Thermometer className="w-3 h-3" />
           Feels {weather.feels_like}°
@@ -120,12 +135,7 @@ export default function MapWeatherOverlay({ mapCenter, onClose }) {
 
       {warning && (
         <div
-          className="mt-1.5 px-2 py-1 rounded-lg text-[10px] flex items-center gap-1.5"
-          style={{
-            backgroundColor: warningColors[warning.level].bg,
-            color: warningColors[warning.level].text,
-            border: `1px solid ${warningColors[warning.level].border}`,
-          }}
+          className={`mt-1.5 px-2 py-1 rounded-lg text-xs flex items-center gap-1.5 border ${warningClasses[warning.level]}`}
         >
           <AlertTriangle className="w-3 h-3 shrink-0" />
           {warning.text}
@@ -134,7 +144,7 @@ export default function MapWeatherOverlay({ mapCenter, onClose }) {
 
       <button
         onClick={fetchWeather}
-        className="text-[9px] text-primary hover:text-primary/80 mt-1 block"
+        className="text-xs text-primary hover:text-primary/80 mt-1 block"
       >
         Refresh
       </button>

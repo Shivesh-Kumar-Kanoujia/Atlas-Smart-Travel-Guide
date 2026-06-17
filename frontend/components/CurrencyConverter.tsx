@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useState, useEffect } from 'react';
-import { ArrowRightLeft, Loader2 } from 'lucide-react';
+import { ArrowRightLeft, Loader2, AlertTriangle } from 'lucide-react';
 import { convertCurrency, getCurrencies } from '../lib/api';
 import toast from 'react-hot-toast';
 import { Button } from './ui/button';
@@ -18,6 +18,7 @@ export default function CurrencyConverter() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currencies, setCurrencies] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     getCurrencies().then((r) => setCurrencies(r.data.currencies)).catch(() => {});
@@ -26,11 +27,13 @@ export default function CurrencyConverter() {
   const handleConvert = async () => {
     if (!amount || amount <= 0) return;
     setLoading(true);
+    setError(null);
     try {
       const res = await convertCurrency(parseFloat(amount), from, to);
       setResult(res.data);
     } catch {
       toast.error('Conversion failed. Try again.');
+      setError('Conversion failed. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -101,6 +104,13 @@ export default function CurrencyConverter() {
             'Convert'
           )}
         </Button>
+
+        {error && (
+          <div className="mt-4 p-3 bg-destructive/10 text-destructive text-sm rounded-xl border border-destructive/20 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
 
         {result && (
           <div className="mt-5 p-5 bg-gradient-to-r from-secondary to-primary/5 border border-border rounded-xl animate-in fade-in slide-in-from-bottom-2 text-center">

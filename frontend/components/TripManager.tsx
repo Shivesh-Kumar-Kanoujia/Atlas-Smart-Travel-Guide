@@ -447,7 +447,7 @@ export default function TripManager() {
                       <Badge
                         variant="outline"
                         className={cn(
-                          'text-[10px] px-1.5 py-0 font-normal',
+                          'text-xs px-1.5 py-0 font-normal',
                           STATUS_STYLES[selectedTrip.status] || ''
                         )}
                       >
@@ -625,7 +625,7 @@ export default function TripManager() {
                                 <div className="text-sm font-semibold text-foreground">
                                   ${val.amount?.toLocaleString()}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground line-clamp-1">{val.details}</div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">{val.details}</div>
                               </div>
                             ))}
                           </div>
@@ -719,7 +719,7 @@ export default function TripManager() {
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <MapPin className="w-3.5 h-3.5" />
                             {packingSuggest.destination} &middot; {packingSuggest.duration_days} days &middot; {packingSuggest.season}
-                            <Badge variant="outline" className="text-[10px] ml-auto">
+                            <Badge variant="outline" className="text-xs ml-auto">
                               {packingSuggest.total_items} items ({packingSuggest.essential_count} essential)
                             </Badge>
                           </div>
@@ -745,7 +745,7 @@ export default function TripManager() {
                                       )} />
                                       <span className="text-foreground flex-1">{item.item}</span>
                                       {item.tip && (
-                                        <span className="text-muted-foreground text-[10px] hidden sm:inline max-w-[200px] truncate">
+                                        <span className="text-muted-foreground text-xs hidden sm:inline max-w-[200px] truncate">
                                           {item.tip}
                                         </span>
                                       )}
@@ -813,7 +813,7 @@ export default function TripManager() {
                         <button
                           key={t}
                           onClick={() => setPackingInput(t)}
-                          className="px-2.5 py-1 bg-secondary border border-border text-xs text-secondary-foreground rounded-full hover:bg-accent transition-all"
+                          className="px-3 py-2 bg-secondary border border-border text-xs text-secondary-foreground rounded-full hover:bg-accent transition-all"
                         >
                           {t}
                         </button>

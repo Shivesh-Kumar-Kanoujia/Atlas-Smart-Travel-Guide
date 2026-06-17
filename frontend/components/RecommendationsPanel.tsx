@@ -60,7 +60,7 @@ export default function RecommendationsPanel() {
         <button
           onClick={fetchRecommendations}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
+          className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (loaded ? <RefreshCw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />)}
           {loaded ? 'Refresh' : 'Get Recommendations'}
@@ -134,7 +134,7 @@ export default function RecommendationsPanel() {
 
               <div className="flex flex-wrap gap-1">
                 {rec.highlights.map((h, j) => (
-                  <Badge key={j} variant="secondary" className="text-[10px]">
+                  <Badge key={j} variant="secondary" className="text-xs">
                     {h}
                   </Badge>
                 ))}

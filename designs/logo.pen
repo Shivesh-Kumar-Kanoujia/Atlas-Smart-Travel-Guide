@@ -1,0 +1,428 @@
+{
+  "version": "2.13",
+  "children": [
+    {
+      "type": "frame",
+      "id": "jViss",
+      "x": 0,
+      "y": 0,
+      "name": "Logo Icon",
+      "reusable": true,
+      "width": 104,
+      "height": 104,
+      "layout": "none",
+      "children": [
+        {
+          "type": "ellipse",
+          "id": "DSpHU",
+          "x": 4,
+          "y": 4,
+          "name": "Outer Ring",
+          "fill": "#00000000",
+          "width": 96,
+          "height": 96,
+          "stroke": "$primary",
+          "strokeWidth": 3.5
+        },
+        {
+          "type": "ellipse",
+          "id": "ga2Ie",
+          "x": 14,
+          "y": 14,
+          "name": "Inner Ring",
+          "opacity": 0.25,
+          "fill": "#00000000",
+          "width": 76,
+          "height": 76,
+          "stroke": "$secondary",
+          "strokeWidth": 0.6
+        },
+        {
+          "type": "path",
+          "id": "gWNSr",
+          "x": 26,
+          "y": 16,
+          "name": "A Left Leg",
+          "geometry": "M26 0l-26 66",
+          "viewBox": [
+            0,
+            0,
+            26,
+            66
+          ],
+          "fill": "#00000000",
+          "width": 26,
+          "height": 66,
+          "stroke": "$primary",
+          "strokeWidth": 6.5,
+          "strokeLinejoin": "round",
+          "strokeLinecap": "round"
+        },
+        {
+          "type": "path",
+          "id": "RvUnZ",
+          "x": 26,
+          "y": 16,
+          "name": "A Right Leg",
+          "geometry": "M26 0l26 66",
+          "viewBox": [
+            0,
+            0,
+            52,
+            66
+          ],
+          "fill": "#00000000",
+          "width": 52,
+          "height": 66,
+          "stroke": "$primary",
+          "strokeWidth": 6.5,
+          "strokeLinejoin": "round",
+          "strokeLinecap": "round"
+        },
+        {
+          "type": "line",
+          "id": "TA7Jx",
+          "x": 32,
+          "y": 50,
+          "name": "A Crossbar",
+          "fill": "#00000000",
+          "width": 34,
+          "height": 0,
+          "stroke": "$primary",
+          "strokeWidth": 6.5,
+          "strokeLinecap": "round"
+        },
+        {
+          "type": "path",
+          "id": "zJ1Ov",
+          "x": 46,
+          "y": 2,
+          "name": "Compass Needle",
+          "geometry": "M5 0l5 10-3 0 0 4-4 0 0-4-3 0z",
+          "viewBox": [
+            0,
+            0,
+            10,
+            14
+          ],
+          "fill": "$primary",
+          "width": 10,
+          "height": 14
+        },
+        {
+          "type": "path",
+          "id": "FduYw",
+          "x": 48,
+          "y": 46,
+          "name": "Center Diamond",
+          "geometry": "M4 0l4 4-4 4-4-4z",
+          "viewBox": [
+            0,
+            0,
+            8,
+            8
+          ],
+          "fill": "$accent",
+          "width": 8,
+          "height": 8
+        },
+        {
+          "type": "path",
+          "id": "jLJlx",
+          "x": 20,
+          "y": 58,
+          "name": "Globe Arc",
+          "opacity": 0.2,
+          "geometry": "M0 36c0-28 64-28 64 0",
+          "viewBox": [
+            0,
+            0,
+            64,
+            36
+          ],
+          "fill": "#00000000",
+          "width": 64,
+          "height": 36,
+          "stroke": "$secondary",
+          "strokeWidth": 0.8
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "YxniG",
+      "x": 184,
+      "y": 0,
+      "name": "Horizontal Logo",
+      "gap": 20,
+      "alignItems": "center",
+      "children": [
+        {
+          "id": "yABXK",
+          "type": "ref",
+          "ref": "jViss",
+          "name": "Logo Icon"
+        },
+        {
+          "type": "frame",
+          "id": "lH8nl",
+          "name": "Text Group",
+          "layout": "vertical",
+          "gap": 2,
+          "children": [
+            {
+              "type": "text",
+              "id": "JSXCT",
+              "name": "Wordmark",
+              "fill": "$text-dark",
+              "content": "Atlas",
+              "fontFamily": "DM Sans",
+              "fontSize": 36,
+              "fontWeight": "700",
+              "letterSpacing": 0.5
+            },
+            {
+              "type": "text",
+              "id": "lKflt",
+              "name": "Tagline",
+              "fill": "#64748B",
+              "content": "SMART TRAVEL",
+              "fontFamily": "DM Sans",
+              "fontSize": 10,
+              "letterSpacing": 4.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "hCRlg",
+      "x": 513,
+      "y": 0,
+      "name": "Vertical Logo",
+      "layout": "vertical",
+      "gap": 16,
+      "alignItems": "center",
+      "children": [
+        {
+          "id": "G6w8W",
+          "type": "ref",
+          "ref": "jViss",
+          "name": "Logo Icon"
+        },
+        {
+          "type": "frame",
+          "id": "AQJwi",
+          "name": "Text Group",
+          "layout": "vertical",
+          "gap": 2,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "zRVXD",
+              "name": "Wordmark",
+              "fill": "$text-dark",
+              "content": "Atlas",
+              "textAlign": "center",
+              "fontFamily": "DM Sans",
+              "fontSize": 32,
+              "fontWeight": "700",
+              "letterSpacing": 0.5
+            },
+            {
+              "type": "text",
+              "id": "QAm04",
+              "name": "Tagline",
+              "fill": "#64748B",
+              "content": "SMART TRAVEL",
+              "textAlign": "center",
+              "fontFamily": "DM Sans",
+              "fontSize": 10,
+              "letterSpacing": 4.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "cwn43",
+      "x": 0,
+      "y": 257,
+      "name": "Dark Mode",
+      "width": 600,
+      "height": 300,
+      "fill": "#0f0f12",
+      "layout": "vertical",
+      "gap": 40,
+      "padding": 80,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "M27mC0",
+          "name": "Dark Logo",
+          "gap": 20,
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "T2SG8",
+              "type": "ref",
+              "ref": "jViss",
+              "name": "Logo Icon"
+            },
+            {
+              "type": "frame",
+              "id": "acyv3",
+              "name": "Text Group",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "LdYOr",
+                  "name": "Wordmark",
+                  "fill": "#f1f5f9",
+                  "content": "Atlas",
+                  "fontFamily": "DM Sans",
+                  "fontSize": 36,
+                  "fontWeight": "700",
+                  "letterSpacing": 0.5
+                },
+                {
+                  "type": "text",
+                  "id": "rNqXB",
+                  "name": "Tagline",
+                  "fill": "#64748B",
+                  "content": "SMART TRAVEL",
+                  "fontFamily": "DM Sans",
+                  "fontSize": 10,
+                  "letterSpacing": 4.5
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "rPtVS",
+          "name": "Label",
+          "fill": "#475569",
+          "content": "DARK MODE",
+          "textAlign": "center",
+          "fontFamily": "DM Sans",
+          "fontSize": 11,
+          "letterSpacing": 3
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "FdRSX",
+      "x": 680,
+      "y": 257,
+      "name": "Monochrome",
+      "width": 600,
+      "height": 300,
+      "fill": "#ffffff",
+      "layout": "vertical",
+      "gap": 40,
+      "padding": 80,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "OmBEj",
+          "name": "Monochrome Logo",
+          "gap": 20,
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "G4mFh",
+              "type": "ref",
+              "ref": "jViss",
+              "name": "Logo Icon"
+            },
+            {
+              "type": "frame",
+              "id": "HYecQ",
+              "name": "Text Group",
+              "layout": "vertical",
+              "gap": 2,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "zXnRH",
+                  "name": "Wordmark",
+                  "fill": "#1a1a1a",
+                  "content": "Atlas",
+                  "fontFamily": "DM Sans",
+                  "fontSize": 36,
+                  "fontWeight": "700",
+                  "letterSpacing": 0.5
+                },
+                {
+                  "type": "text",
+                  "id": "veyux",
+                  "name": "Tagline",
+                  "fill": "#1a1a1a",
+                  "content": "SMART TRAVEL",
+                  "fontFamily": "DM Sans",
+                  "fontSize": 10,
+                  "letterSpacing": 4.5
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "nU8nb",
+          "name": "Label",
+          "fill": "#94A3B8",
+          "content": "MONOCHROME",
+          "textAlign": "center",
+          "fontFamily": "DM Sans",
+          "fontSize": 11,
+          "letterSpacing": 3
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "primary": {
+      "type": "color",
+      "value": "#10B981"
+    },
+    "text-dark": {
+      "type": "color",
+      "value": "#1a1a1a"
+    },
+    "accent": {
+      "type": "color",
+      "value": "#D4A017"
+    },
+    "bg-dark": {
+      "type": "color",
+      "value": "#0f0f12"
+    },
+    "bg-white": {
+      "type": "color",
+      "value": "#ffffff"
+    },
+    "mono": {
+      "type": "color",
+      "value": "#1a1a1a"
+    },
+    "secondary": {
+      "type": "color",
+      "value": "#0F766E"
+    },
+    "text-light": {
+      "type": "color",
+      "value": "#f1f5f9"
+    }
+  }
+}

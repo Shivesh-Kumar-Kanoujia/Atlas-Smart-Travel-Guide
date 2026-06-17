@@ -56,7 +56,7 @@ async def analyze_image(request: Request, req: ImageAnalysisRequest):
         }
     except Exception as e:
         logger.exception("Image analysis failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Image analysis failed. Please try again.")
 
 
 @router.post("/upload")
@@ -96,4 +96,4 @@ async def upload_and_analyze(request: Request, file: UploadFile = File(...), que
         }
     except Exception as e:
         logger.exception("Image upload analysis failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Image analysis failed. Please try again.")

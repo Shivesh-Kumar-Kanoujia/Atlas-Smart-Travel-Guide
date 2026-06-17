@@ -12,13 +12,18 @@ router = APIRouter()
 
 @router.get("/overview")
 @limiter.limit("20/minute")
-async def get_analytics_overview(request: Request, user: dict = Depends(get_current_user)):
+async def get_analytics_overview(
+    request: Request,
+    max_trips: int = 500,
+    user: dict = Depends(get_current_user),
+):
     user_id = user.get("id")
     if not user_id:
         return {"error": "Authentication required"}
+    max_trips = max(1, min(max_trips, 5000))
 
     try:
-        result = supabase.table("trips").select("*").eq("user_id", user_id).execute()
+        result = supabase.table("trips").select("*").eq("user_id", user_id).limit(max_trips).execute()
     except Exception as e:
         logger.exception("Analytics query failed for user %s", user_id)
         return {"error": "Failed to load analytics", "trips_count": 0}

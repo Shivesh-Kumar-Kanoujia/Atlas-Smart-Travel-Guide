@@ -70,7 +70,7 @@ export default function TravelTimeline({
           <div className="w-2 h-2 rounded-full bg-primary" />
           Travel Timeline
         </div>
-        <div className="text-[10px] text-muted-foreground mt-0.5">
+        <div className="text-xs text-muted-foreground mt-0.5">
           {timelineItems.length} activities across {itinerary.length} day{itinerary.length > 1 ? 's' : ''}
         </div>
       </div>
@@ -111,27 +111,27 @@ export default function TravelTimeline({
                   )}
                   style={{ backgroundColor: isActive ? item.color : `${item.color}20` }}
                 >
-                  <Icon className="w-3.5 h-3.5" style={{ color: isActive ? '#fff' : item.color }} />
+                  <Icon className="w-3.5 h-3.5 text-white" style={{ color: isActive ? undefined : item.color }} />
                 </div>
               </div>
 
               {/* Content card */}
               <div className={cn(
-                'flex-1 min-w-0 rounded-xl p-3 transition-all border',
+                'flex-1 min-w-0 rounded-xl p-3 min-h-[44px] transition-all border',
                 isActive
                   ? 'bg-accent border-primary/20 shadow-sm'
                   : 'bg-secondary/50 border-transparent group-hover:bg-secondary'
               )}>
                 {/* Time + day badge */}
                 <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[10px] font-mono font-bold text-foreground">{item.time || '--:--'}</span>
+                  <span className="text-xs font-mono font-bold text-foreground">{item.time || '--:--'}</span>
                   <div
-                    className="text-[9px] text-white font-semibold px-1.5 py-0.5 rounded"
+                    className="text-xs text-white font-semibold px-1.5 py-0.5 rounded"
                     style={{ backgroundColor: item.color }}
                   >
                     Day {item.dayNumber}
                   </div>
-                  <span className="text-[9px] text-muted-foreground ml-auto">{item.meta.label}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{item.meta.label}</span>
                 </div>
 
                 {/* Activity name */}
@@ -139,7 +139,7 @@ export default function TravelTimeline({
 
                 {/* Description */}
                 {item.description && (
-                  <div className="text-[11px] text-muted-foreground leading-relaxed mb-1.5 line-clamp-2">
+                  <div className="text-xs text-muted-foreground leading-relaxed mb-1.5 line-clamp-2">
                     {item.description}
                   </div>
                 )}
@@ -147,16 +147,16 @@ export default function TravelTimeline({
                 {/* Cost + tip */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {item.cost && (
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                    <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                       <DollarSign className="w-2.5 h-2.5" />
                       {item.cost}
                     </span>
                   )}
                   {item.tip && (
-                    <span className="text-[9px] text-muted-foreground/60 italic">💡 {item.tip}</span>
+                    <span className="text-xs text-muted-foreground/60 italic">💡 {item.tip}</span>
                   )}
                   {item.hasCoords && (
-                    <span className="text-[9px] text-primary flex items-center gap-0.5 ml-auto">
+                    <span className="text-xs text-primary flex items-center gap-0.5 ml-auto">
                       <MapPin className="w-2.5 h-2.5" />
                       View on map
                     </span>

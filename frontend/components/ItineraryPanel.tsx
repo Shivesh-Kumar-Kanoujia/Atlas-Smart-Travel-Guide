@@ -151,7 +151,7 @@ export default function ItineraryPanel({ trip, onUpdate }: { trip: any; onUpdate
             {trip.destination} &middot; {duration} days
           </span>
           {itinerary.length > 0 && (
-            <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0 bg-forest-500/10 text-forest-500 border-forest-500/20">
+            <Badge variant="outline" className="ml-auto text-xs px-1.5 py-0 bg-forest-500/10 text-forest-500 border-forest-500/20">
               Generated
             </Badge>
           )}

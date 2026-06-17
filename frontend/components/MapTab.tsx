@@ -171,8 +171,10 @@ export default function MapTab() {
     try {
       const res = await getNearbyPlaces(lat, lon, rad, cat || undefined);
       setPlaces(res.data.places || []);
-    } catch {
-      toast.error('Failed to load nearby places');
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Failed to load nearby places';
+      toast.error(msg);
+      console.error('[doFetch]', msg, err);
     } finally {
       setPlacesLoading(false);
     }
@@ -239,31 +241,71 @@ export default function MapTab() {
             ) : filteredTrips.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground text-center">No trips found</div>
             ) : (
-              filteredTrips.map((trip, i) => (
-                <div
-                  key={trip.id || i}
-                  onClick={() => handleTripSelect(trip)}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors border-l-[3px]',
-                    selectedTrip?.id === trip.id
-                      ? 'bg-secondary border-l-primary'
-                      : 'hover:bg-accent border-l-transparent'
-                  )}
-                >
+              filteredTrips.map((trip, i) => {
+                const isActive = selectedTrip?.id === trip.id;
+                
+                let status = 'PLANNED';
+                if (trip.start_date) {
+                  const start = new Date(trip.start_date);
+                  const end = trip.end_date ? new Date(trip.end_date) : start;
+                  const now = new Date();
+                  if (now >= start && now <= end) status = 'ACTIVE';
+                  else if (now > end) status = 'COMPLETED';
+                }
+
+                let dateStr = trip.start_date || 'No dates set';
+                if (trip.start_date && trip.end_date) {
+                  dateStr = `${new Date(trip.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${new Date(trip.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+                } else if (trip.start_date) {
+                  dateStr = new Date(trip.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                }
+
+                return (
                   <div
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ background: tripColors[i % tripColors.length] }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-foreground truncate">
-                      {trip.destination || trip.name}
+                    key={trip.id || i}
+                    onClick={() => handleTripSelect(trip)}
+                    className={cn(
+                      'flex flex-col gap-2 p-3 cursor-pointer transition-all border-l-[3px] border-b border-b-border',
+                      isActive
+                        ? 'bg-secondary border-l-primary'
+                        : 'hover:bg-accent border-l-transparent'
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div
+                          className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-white shadow-sm"
+                          style={{ background: tripColors[i % tripColors.length] }}
+                        >
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-foreground truncate" title={trip.destination || trip.name}>
+                            {trip.destination || trip.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate flex items-center gap-1">
+                            <span>{dateStr}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={cn(
+                        "text-[10px] uppercase font-semibold px-1.5 py-0 h-4 min-h-0",
+                        status === 'ACTIVE' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" :
+                        status === 'COMPLETED' ? "bg-muted text-muted-foreground border-border" :
+                        "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                      )}>
+                        {status}
+                      </Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {trip.start_date || 'No date set'}
-                    </div>
+                    {trip.budget && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground ml-[42px] font-medium">
+                        <span>Budget:</span>
+                        <span className="text-foreground">₹{trip.budget}</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -276,7 +318,7 @@ export default function MapTab() {
                     <button
                       onClick={() => { setDirectionsMode(false); setItineraryMode(false); setTimelineMode(false); }}
                       className={cn(
-                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
+                        'px-3 py-2 rounded text-xs font-medium transition-all',
                         !directionsMode && !itineraryMode && !timelineMode
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:text-foreground'
@@ -287,7 +329,7 @@ export default function MapTab() {
                     <button
                       onClick={() => { setDirectionsMode(true); setItineraryMode(false); }}
                       className={cn(
-                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
+                        'px-3 py-2 rounded text-xs font-medium transition-all',
                         directionsMode
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:text-foreground'
@@ -299,7 +341,7 @@ export default function MapTab() {
                     <button
                       onClick={() => { setItineraryMode((p) => !p); setDirectionsMode(false); setTimelineMode(false); }}
                       className={cn(
-                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
+                        'px-3 py-2 rounded text-xs font-medium transition-all',
                         itineraryMode
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:text-foreground'
@@ -313,7 +355,7 @@ export default function MapTab() {
                     <button
                       onClick={() => { setTimelineMode((p) => !p); setDirectionsMode(false); setItineraryMode(false); }}
                       className={cn(
-                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
+                        'px-3 py-2 rounded text-xs font-medium transition-all',
                         timelineMode
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:text-foreground'
@@ -327,7 +369,7 @@ export default function MapTab() {
                     <button
                       onClick={() => { setSavedMapsMode((p) => !p); setDirectionsMode(false); setItineraryMode(false); setTimelineMode(false); }}
                       className={cn(
-                        'px-2 py-1 rounded text-[10px] font-medium transition-all',
+                        'px-3 py-2 rounded text-xs font-medium transition-all',
                         savedMapsMode
                           ? 'bg-primary text-primary-foreground'
                           : 'text-muted-foreground hover:text-foreground'
@@ -342,7 +384,7 @@ export default function MapTab() {
                     <select
                       value={radius}
                       onChange={(e) => setRadius(Number(e.target.value))}
-                      className="text-xs bg-secondary rounded-md px-1.5 py-0.5 border border-border outline-none"
+                      className="text-xs bg-secondary rounded-md px-2 py-1.5 border border-border outline-none"
                     >
                       <option value={500}>500m</option>
                       <option value={1000}>1km</option>
@@ -365,7 +407,7 @@ export default function MapTab() {
                             setSelectedPlace(null);
                           }}
                           className={cn(
-                            'flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all border',
+                            'flex items-center gap-1 px-3 py-2 rounded-full text-xs font-medium transition-all border',
                             activeCategory === key
                               ? 'bg-primary text-primary-foreground border-primary'
                               : 'bg-secondary text-secondary-foreground border-border hover:bg-accent'
@@ -383,24 +425,24 @@ export default function MapTab() {
                   <div className="space-y-2 pt-1">
                     {/* Start point */}
                     <div>
-                      <label className="text-[10px] text-muted-foreground block mb-1">Start</label>
+                      <label className="text-xs text-muted-foreground block mb-1">Start</label>
                       <div className="flex gap-1">
                         <input
                           value={startLat}
                           onChange={(e) => setStartLat(e.target.value)}
                           placeholder="Latitude"
-                          className="flex-1 text-[10px] bg-secondary rounded px-1.5 py-1 border border-border outline-none w-0"
+                          className="flex-1 text-xs bg-secondary rounded px-1.5 py-1 border border-border outline-none w-0"
                         />
                         <input
                           value={startLon}
                           onChange={(e) => setStartLon(e.target.value)}
                           placeholder="Longitude"
-                          className="flex-1 text-[10px] bg-secondary rounded px-1.5 py-1 border border-border outline-none w-0"
+                          className="flex-1 text-xs bg-secondary rounded px-1.5 py-1 border border-border outline-none w-0"
                         />
                         <button
                           onClick={useMyLocation}
                           disabled={locating}
-                          className="px-1.5 py-1 bg-secondary rounded text-[10px] font-medium hover:bg-accent transition-all shrink-0 disabled:opacity-50"
+                          className="px-1.5 py-1 bg-secondary rounded text-xs font-medium hover:bg-accent transition-all shrink-0 disabled:opacity-50"
                           title="Use my location"
                         >
                           {locating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crosshair className="w-3 h-3" />}
@@ -409,29 +451,29 @@ export default function MapTab() {
                     </div>
                     {/* End point */}
                     <div>
-                      <label className="text-[10px] text-muted-foreground block mb-1">Destination</label>
+                      <label className="text-xs text-muted-foreground block mb-1">Destination</label>
                       <div className="flex gap-1">
                         <input
                           value={endLat}
                           onChange={(e) => setEndLat(e.target.value)}
                           placeholder="Latitude"
-                          className="flex-1 text-[10px] bg-secondary rounded px-1.5 py-1 border border-border outline-none w-0"
+                          className="flex-1 text-xs bg-secondary rounded px-1.5 py-1 border border-border outline-none w-0"
                         />
                         <input
                           value={endLon}
                           onChange={(e) => setEndLon(e.target.value)}
                           placeholder="Longitude"
-                          className="flex-1 text-[10px] bg-secondary rounded px-1.5 py-1 border border-border outline-none w-0"
+                          className="flex-1 text-xs bg-secondary rounded px-1.5 py-1 border border-border outline-none w-0"
                         />
                         <button
                           onClick={fillEndFromTrip}
-                          className="px-1.5 py-1 bg-secondary rounded text-[10px] font-medium hover:bg-accent transition-all shrink-0"
+                          className="px-1.5 py-1 bg-secondary rounded text-xs font-medium hover:bg-accent transition-all shrink-0"
                           title="Use trip coordinates"
                         >
                           <Target className="w-3 h-3" />
                         </button>
                       </div>
-                      <div className="mt-1 text-[10px] text-muted-foreground">
+                      <div className="mt-1 text-xs text-muted-foreground">
                         <button
                           onClick={fillEndFromTrip}
                           className="text-primary hover:underline"
@@ -442,7 +484,7 @@ export default function MapTab() {
                     </div>
                     {/* Route info */}
                     {routeInfo && (
-                      <div className="bg-secondary rounded-lg p-2 text-[10px] space-y-1">
+                      <div className="bg-secondary rounded-lg p-2 text-xs space-y-1">
                         <div className="flex items-center gap-2 text-foreground font-medium">
                           <Route className="w-3 h-3 text-primary" />
                           <span>{formatDistance(routeInfo.distance)}</span>
@@ -453,14 +495,14 @@ export default function MapTab() {
                     )}
                     <div className="flex gap-1">
                       {(!startLat || !endLat) && (
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           Enter coordinates or use location buttons above
                         </p>
                       )}
                       {routeInfo && (
                         <button
                           onClick={clearRoute}
-                          className="text-[10px] text-destructive hover:underline"
+                          className="text-xs text-destructive hover:underline"
                         >
                           Clear route
                         </button>
@@ -510,7 +552,7 @@ export default function MapTab() {
                   <div>
                     <ListOrdered className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
                     <p className="text-xs text-muted-foreground">No itinerary yet</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">Generate one in the Trip Manager</p>
+                    <p className="text-xs text-muted-foreground mt-1">Generate one in the Trip Manager</p>
                   </div>
                 </div>
               ) : !directionsMode && (
@@ -529,7 +571,7 @@ export default function MapTab() {
                     </div>
                   ) : (
                     <div className="p-2 space-y-1">
-                      <p className="text-[10px] text-muted-foreground px-1 mb-1">
+                      <p className="text-xs text-muted-foreground px-1 mb-1">
                         {places.length} place{places.length !== 1 ? 's' : ''} found
                       </p>
                       {places.map((place) => {
@@ -583,12 +625,12 @@ export default function MapTab() {
               <div className="text-xs font-medium text-foreground mb-1">
                 {selectedTrip.destination || selectedTrip.name}
               </div>
-              <div className="text-[10px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 {selectedTrip.budget ? `Budget: $${selectedTrip.budget}` : 'No budget set'}
               </div>
               <button
                 onClick={() => { setSelectedTrip(null); setPlaces([]); setSelectedPlace(null); }}
-                className="text-[10px] text-primary hover:text-primary/80 transition-colors mt-1"
+                className="text-xs text-primary hover:text-primary/80 transition-colors mt-1"
               >
                 Clear selection
               </button>
@@ -627,7 +669,7 @@ export default function MapTab() {
               <span className="flex items-center gap-1">
                 <Route className="w-3 h-3 text-primary" />
                 <span className="font-medium text-foreground">{formatDistance(routeInfo.distance)}</span>
-                <span className="text-[10px]">&middot;</span>
+                <span className="text-xs">&middot;</span>
                 <span>{formatDuration(routeInfo.duration)}</span>
               </span>
             )}
@@ -687,7 +729,7 @@ export default function MapTab() {
                   {selectedPlace.name}
                 </h3>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="outline" className="text-[10px] capitalize">
+                  <Badge variant="outline" className="text-xs capitalize">
                     {selectedPlace.type}
                   </Badge>
                   {selectedPlace.cuisine && (

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import httpx
 import os
 from .limiter import limiter
+from .cache import get_cache, set_cache, cache_key
 
 logger = logging.getLogger("atlas.currency")
 
@@ -33,6 +34,19 @@ async def convert_currency(request: Request, req: ConvertRequest):
         from_cur = req.from_currency.upper()
         to_cur = req.to_currency.upper()
 
+        cache_key_val = cache_key("currency", from_cur, to_cur)
+        cached = get_cache(cache_key_val)
+        if cached:
+            rate = cached["rate"]
+            return {
+                "from": from_cur,
+                "to": to_cur,
+                "amount": req.amount,
+                "converted": round(req.amount * rate, 4),
+                "rate": rate,
+                "source": cached["source"],
+            }
+
         if EXCHANGE_API_KEY:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(
@@ -40,7 +54,7 @@ async def convert_currency(request: Request, req: ConvertRequest):
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    return {
+                    result = {
                         "from": from_cur,
                         "to": to_cur,
                         "amount": req.amount,
@@ -48,6 +62,8 @@ async def convert_currency(request: Request, req: ConvertRequest):
                         "rate": round(data["conversion_rate"], 6),
                         "source": "live",
                     }
+                    set_cache(cache_key_val, {"rate": data["conversion_rate"], "source": "live"}, ttl=3600)
+                    return result
 
         # Fallback to static rates
         if from_cur not in FALLBACK_RATES or to_cur not in FALLBACK_RATES:

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from .auth import get_current_user
 from .db import supabase
 from .limiter import limiter
+from .sanitize import sanitize
 import secrets
 
 logger = logging.getLogger("atlas.chat_history")
@@ -27,14 +28,20 @@ class MessageSave(BaseModel):
 
 @router.get("/conversations")
 @limiter.limit("30/minute")
-async def list_conversations(request: Request, user: dict = Depends(get_current_user)):
+async def list_conversations(
+    request: Request,
+    limit: int = 50,
+    user: dict = Depends(get_current_user),
+):
     user_id = user.get("id")
+    limit = max(1, min(limit, 200))
     try:
         result = (
             supabase.table("conversations")
             .select("id, title, created_at, updated_at")
             .eq("user_id", user_id)
             .order("updated_at", desc=True)
+            .limit(limit)
             .execute()
         )
         return {"conversations": result.data or []}
@@ -55,7 +62,7 @@ async def create_conversation(request: Request, req: ConversationCreate, user: d
     data = {
         "id": conv_id,
         "user_id": user_id,
-        "title": req.title,
+        "title": sanitize(req.title, 200),
         "created_at": now,
         "updated_at": now,
     }
@@ -72,7 +79,7 @@ async def create_conversation(request: Request, req: ConversationCreate, user: d
             msg_data = {
                 "conversation_id": conv_id,
                 "role": "user",
-                "content": req.first_message,
+                "content": sanitize(req.first_message, 4000),
                 "created_at": now,
             }
             supabase.table("messages").insert(msg_data).execute()
@@ -130,7 +137,7 @@ async def save_message(request: Request, conv_id: str, msg: MessageSave, user: d
     msg_data = {
         "conversation_id": conv_id,
         "role": msg.role,
-        "content": msg.content,
+        "content": sanitize(msg.content, 4000),
         "created_at": now,
     }
 
@@ -159,7 +166,7 @@ async def update_conversation(request: Request, conv_id: str, title: str, user: 
     if not conv.data or conv.data[0]["user_id"] != user_id:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    supabase.table("conversations").update({"title": title}).eq("id", conv_id).execute()
+    supabase.table("conversations").update({"title": sanitize(title, 200)}).eq("id", conv_id).execute()
     return {"status": "ok"}
 
 
