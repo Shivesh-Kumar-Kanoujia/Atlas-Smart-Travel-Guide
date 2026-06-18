@@ -62,6 +62,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS — allow origins from env (comma-separated) or default to local dev
+# Also allows all *.vercel.app and *.onrender.com origins automatically (preview/branch deploys)
 origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000")
 origins = [o.strip() for o in origins_str.split(",") if o.strip()]
 logger.info("CORS origins: %s", origins)
@@ -69,6 +70,7 @@ logger.info("CORS origins: %s", origins)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app|https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
