@@ -26,8 +26,8 @@ interface Message {
   streaming?: boolean;
 }
 
-export default function ChatBox() {
-  const { user, travelMemory } = useAuth();
+export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
+  const { user, loading: authLoading, travelMemory } = useAuth();
 
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
@@ -41,19 +41,20 @@ export default function ChatBox() {
 
   // Conversation state
   const [conversations, setConversations] = useState([]);
-  const [activeConvId, setActiveConvId] = useState(null);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [convLoading, setConvLoading] = useState(false);
   const initializedRef = useRef(false);
 
-  // Load conversations on mount
+  // Load conversations on mount (after auth settles)
   useEffect(() => {
-    if (user && !initializedRef.current) {
-      initializedRef.current = true;
-      loadConversations();
-    }
+    if (authLoading) return;
+    if (!user) return;
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    loadConversations(initialConvId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -65,13 +66,14 @@ export default function ChatBox() {
     };
   }, []);
 
-  const loadConversations = async () => {
+  const loadConversations = async (selectConvId?: string) => {
     try {
       const res = await listConversations();
       const convs = res.data.conversations || [];
       setConversations(convs);
       if (convs.length > 0 && !activeConvId) {
-        selectConversation(convs[0].id);
+        const targetId = selectConvId && convs.find((c: any) => c.id === selectConvId) ? selectConvId : convs[0].id;
+        selectConversation(targetId);
       }
     } catch (err: any) {
       console.error('Failed to load conversations:', err);

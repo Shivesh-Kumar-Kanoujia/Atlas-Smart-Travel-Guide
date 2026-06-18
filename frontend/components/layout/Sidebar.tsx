@@ -27,7 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
 
 interface SidebarProps {
   activeTab: string;
-  onTabChange: (tab: string) => void;
+  onTabChange: (tab: string, convId?: string) => void;
 }
 
 export default function Sidebar({ activeTab, onTabChange }: SidebarProps) {

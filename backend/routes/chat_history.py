@@ -33,6 +33,8 @@ async def list_conversations(
     limit: int = 50,
     user: dict = Depends(get_current_user),
 ):
+    if not user:
+        return {"conversations": []}
     user_id = user.get("id")
     limit = max(1, min(limit, 200))
     try:
@@ -55,6 +57,8 @@ async def list_conversations(
 @router.post("/conversations")
 @limiter.limit("10/minute")
 async def create_conversation(request: Request, req: ConversationCreate, user: dict = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
     user_id = user.get("id")
     conv_id = secrets.token_urlsafe(16)
     now = datetime.now(timezone.utc).isoformat()
@@ -94,6 +98,8 @@ async def create_conversation(request: Request, req: ConversationCreate, user: d
 @router.get("/conversations/{conv_id}/messages")
 @limiter.limit("30/minute")
 async def get_messages(request: Request, conv_id: str, user: dict = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
     user_id = user.get("id")
 
     try:
@@ -123,6 +129,8 @@ async def get_messages(request: Request, conv_id: str, user: dict = Depends(get_
 @router.post("/conversations/{conv_id}/messages")
 @limiter.limit("30/minute")
 async def save_message(request: Request, conv_id: str, msg: MessageSave, user: dict = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
     user_id = user.get("id")
 
     try:
@@ -156,6 +164,8 @@ async def save_message(request: Request, conv_id: str, msg: MessageSave, user: d
 @router.put("/conversations/{conv_id}")
 @limiter.limit("10/minute")
 async def update_conversation(request: Request, conv_id: str, title: str, user: dict = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
     user_id = user.get("id")
 
     try:
@@ -175,6 +185,8 @@ async def update_conversation(request: Request, conv_id: str, title: str, user: 
 @router.delete("/conversations/{conv_id}")
 @limiter.limit("10/minute")
 async def delete_conversation(request: Request, conv_id: str, user: dict = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
     user_id = user.get("id")
 
     try:

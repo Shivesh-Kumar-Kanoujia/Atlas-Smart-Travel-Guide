@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 interface AppLayoutProps {
   activeTab: string;
-  onTabChange: (tab: string) => void;
+  onTabChange: (tab: string, convId?: string) => void;
   children: ReactNode;
 }
 

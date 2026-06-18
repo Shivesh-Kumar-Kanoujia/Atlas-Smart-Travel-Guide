@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Head from 'next/head';
 import AppLayout from '../components/layout/AppLayout';
 import DashboardHome from '../components/DashboardHome';
@@ -17,7 +17,11 @@ type TabKey = 'chat' | 'trips' | 'analytics' | 'weather' | 'currency' | 'images'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
-  const handleTabChange = (tab: string) => setActiveTab(tab as TabKey);
+  const pendingConvId = useRef<string | undefined>(undefined);
+  const handleTabChange = (tab: string, convId?: string) => {
+    pendingConvId.current = convId;
+    setActiveTab(tab as TabKey);
+  };
 
   return (
     <>
@@ -38,7 +42,7 @@ export default function Home() {
 
       <AppLayout activeTab={activeTab} onTabChange={handleTabChange}>
         {activeTab === 'dashboard' && <DashboardHome onNavigate={handleTabChange} />}
-        {activeTab === 'chat' && <ChatBox />}
+        {activeTab === 'chat' && <ChatBox key={pendingConvId.current || 'chat'} initialConvId={pendingConvId.current} />}
         {activeTab === 'trips' && <TripManager />}
         {activeTab === 'analytics' && <AnalyticsDashboard />}
         {activeTab === 'weather' && <WeatherWidget />}
