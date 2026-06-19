@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from typing import Optional, List
 import os
 import json
-import re
 from groq import AsyncGroq
 from .auth import get_current_user, require_user
 from .db import supabase
@@ -15,6 +14,12 @@ logger = logging.getLogger("atlas.personalization")
 
 router = APIRouter()
 client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
+
+
+def _safe_format(template: str, **kwargs) -> str:
+    """Format a string template, escaping curly braces in kwargs to prevent KeyError."""
+    escaped = {k: v.replace("{", "{{").replace("}", "}}") if isinstance(v, str) else v for k, v in kwargs.items()}
+    return template.format(**escaped)
 
 
 # ── Extract preferences from chat history ─────────────────────────────────
@@ -102,7 +107,7 @@ async def extract_preferences(request: Request, req: ExtractPreferencesRequest, 
         except Exception as e:
             logger.warning(f"Failed to fetch user data for extraction: {e}")
 
-    prompt = EXTRACT_PROMPT.format(
+    prompt = _safe_format(EXTRACT_PROMPT,
         chat_history=req.chat_history or "No chat history available.",
         trip_data=req.trip_data or "No trip data available.",
     )
@@ -318,7 +323,7 @@ async def get_recommendations(request: Request, user: dict = Depends(get_current
 
     user_profile = "\n".join(profile_parts)
 
-    prompt = RECOMMEND_PROMPT.format(user_profile=user_profile)
+    prompt = _safe_format(RECOMMEND_PROMPT, user_profile=user_profile)
 
     try:
         completion = await client.chat.completions.create(
