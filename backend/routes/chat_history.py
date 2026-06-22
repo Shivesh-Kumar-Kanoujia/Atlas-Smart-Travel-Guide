@@ -115,7 +115,7 @@ async def get_messages(request: Request, conv_id: str, user: dict = Depends(get_
             supabase.table("messages")
             .select("id, role, content, created_at")
             .eq("conversation_id", conv_id)
-            .order("created_at", asc=True)
+            .order("created_at", desc=False)
             .execute()
         )
         return {"conversation_id": conv_id, "messages": result.data or []}

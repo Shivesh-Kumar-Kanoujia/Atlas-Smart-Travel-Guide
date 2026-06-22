@@ -17,9 +17,11 @@ async def get_analytics_overview(
     max_trips: int = 500,
     user: dict = Depends(get_current_user),
 ):
+    if not user:
+        return {"error": "Authentication required", "trips_count": 0}
     user_id = user.get("id")
     if not user_id:
-        return {"error": "Authentication required"}
+        return {"error": "Authentication required", "trips_count": 0}
     max_trips = max(1, min(max_trips, 5000))
 
     try:

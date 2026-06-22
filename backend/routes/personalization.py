@@ -90,7 +90,7 @@ async def extract_preferences(request: Request, req: ExtractPreferencesRequest, 
                     supabase.table("messages")
                     .select("role,content,conversation_id")
                     .in_("conversation_id", conv_ids)
-                    .order("created_at", asc=True)
+                    .order("created_at", desc=False)
                     .limit(50)
                     .execute()
                 )

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import Head from 'next/head';
 import AppLayout from '../components/layout/AppLayout';
 import DashboardHome from '../components/DashboardHome';
@@ -17,9 +17,20 @@ type TabKey = 'chat' | 'trips' | 'analytics' | 'weather' | 'currency' | 'images'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
-  const pendingConvId = useRef<string | undefined>(undefined);
+  // chatKey forces a remount of ChatBox only when navigating with a specific convId
+  // (e.g. from Dashboard "Open Chat"). Normal tab clicks keep the same instance alive.
+  const [chatKey, setChatKey] = useState('default');
+  const [initialConvId, setInitialConvId] = useState<string | undefined>(undefined);
+
   const handleTabChange = (tab: string, convId?: string) => {
-    pendingConvId.current = convId;
+    if (tab === 'chat' && convId) {
+      // Force remount with the specified conversation
+      setInitialConvId(convId);
+      setChatKey(convId);
+    } else if (tab === 'chat' && !convId) {
+      // Normal chat tab click — keep existing instance, just clear pending convId
+      setInitialConvId(undefined);
+    }
     setActiveTab(tab as TabKey);
   };
 
@@ -42,7 +53,7 @@ export default function Home() {
 
       <AppLayout activeTab={activeTab} onTabChange={handleTabChange}>
         {activeTab === 'dashboard' && <DashboardHome onNavigate={handleTabChange} />}
-        {activeTab === 'chat' && <ChatBox key={pendingConvId.current || 'chat'} initialConvId={pendingConvId.current} />}
+        {activeTab === 'chat' && <ChatBox key={chatKey} initialConvId={initialConvId} />}
         {activeTab === 'trips' && <TripManager />}
         {activeTab === 'analytics' && <AnalyticsDashboard />}
         {activeTab === 'weather' && <WeatherWidget />}

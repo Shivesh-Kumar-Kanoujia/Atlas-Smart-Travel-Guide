@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
   Send, Bot, User, Trash2, Sparkles, Plus, MessageSquare,
-  ChevronLeft, ChevronRight, Clock, Loader2
+  ChevronLeft, ChevronRight, Loader2
 } from 'lucide-react';
 import { streamChat, listConversations, createConversation, getConversationMessages, saveChatMessage, deleteConversation, updateConversation } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -19,6 +19,11 @@ const STARTERS = [
   'Safest solo travel destinations for women',
   'Budget Europe trip under $50/day',
 ];
+
+const WELCOME_MSG = {
+  role: 'assistant' as const,
+  content: "Hello! I'm **Atlas**, your AI travel guide.\n\nTell me where you want to go, your mood, or budget — I'll craft the perfect journey for you.",
+};
 
 interface Message {
   role: 'user' | 'assistant';
@@ -44,17 +49,31 @@ export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [convLoading, setConvLoading] = useState(false);
-  const initializedRef = useRef(false);
+  // Track which conv's messages are currently displayed to avoid redundant fetches
+  const loadedConvId = useRef<string | null>(null);
 
-  // Load conversations on mount (after auth settles)
+  // Load conversations whenever user auth settles
   useEffect(() => {
     if (authLoading) return;
-    if (!user) return;
-    if (initializedRef.current) return;
-    initializedRef.current = true;
+    if (!user) {
+      setMessages([WELCOME_MSG]);
+      setConversations([]);
+      setActiveConvId(null);
+      loadedConvId.current = null;
+      return;
+    }
     loadConversations(initialConvId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading]);
+  }, [user?.id, authLoading]);
+
+  // If initialConvId changes (e.g. deep-link from another page), select it
+  useEffect(() => {
+    if (initialConvId && conversations.length > 0) {
+      const exists = conversations.find((c: any) => c.id === initialConvId);
+      if (exists) selectConversation(initialConvId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialConvId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -71,43 +90,44 @@ export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
       const res = await listConversations();
       const convs = res.data.conversations || [];
       setConversations(convs);
-      if (convs.length > 0 && !activeConvId) {
-        const targetId = selectConvId && convs.find((c: any) => c.id === selectConvId) ? selectConvId : convs[0].id;
-        selectConversation(targetId);
+      if (convs.length > 0) {
+        const targetId = selectConvId && convs.find((c: any) => c.id === selectConvId)
+          ? selectConvId
+          : convs[0].id;
+        await selectConversation(targetId, true);
+      } else {
+        // No conversations yet — show welcome
+        setMessages([WELCOME_MSG]);
       }
     } catch (err: any) {
       console.error('Failed to load conversations:', err);
       const msg = err?.response?.data?.detail || err?.message || 'Failed to load conversations';
       toast.error(msg);
+      setMessages([WELCOME_MSG]);
     }
   };
 
-  const selectConversation = async (convId: string) => {
-    if (activeConvId === convId) return;
+  const selectConversation = async (convId: string, force = false) => {
+    // Allow re-selecting if forced (e.g. after initial load) or if the conv changed
+    if (!force && loadedConvId.current === convId) return;
+
     setActiveConvId(convId);
     setConvLoading(true);
+    loadedConvId.current = null; // mark as loading
     try {
       const res = await getConversationMessages(convId);
       const msgs = (res.data.messages || []).map(m => ({
-        role: m.role,
+        role: m.role as 'user' | 'assistant',
         content: m.content,
       }));
-      if (msgs.length === 0) {
-        setMessages([{
-          role: 'assistant',
-          content: "Hello! I'm **Atlas**, your AI travel guide.\n\nTell me where you want to go, your mood, or budget — I'll craft the perfect journey for you.",
-        }]);
-      } else {
-        setMessages(msgs);
-      }
+      setMessages(msgs.length === 0 ? [WELCOME_MSG] : msgs);
+      loadedConvId.current = convId;
     } catch (err: any) {
       console.error('Failed to load messages:', err);
       const msg = err?.response?.data?.detail || err?.message || 'Failed to load messages';
       toast.error(msg);
-      setMessages([{
-        role: 'assistant',
-        content: "Hello! I'm **Atlas**, your AI travel guide.\n\nTell me where you want to go, your mood, or budget — I'll craft the perfect journey for you.",
-      }]);
+      setMessages([WELCOME_MSG]);
+      loadedConvId.current = convId; // still mark loaded to avoid infinite retries
     } finally {
       setConvLoading(false);
     }
@@ -115,21 +135,18 @@ export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
 
   const handleNewChat = async () => {
     if (!user) {
-      setMessages([{
-        role: 'assistant',
-        content: "Hello! I'm **Atlas**, your AI travel guide.\n\nTell me where you want to go, your mood, or budget — I'll craft the perfect journey for you.",
-      }]);
+      setMessages([WELCOME_MSG]);
       setActiveConvId(null);
+      loadedConvId.current = null;
       return;
     }
     try {
       const res = await createConversation({ title: 'New Chat' });
-      setActiveConvId(res.data.id);
-      setConversations(prev => [res.data, ...prev]);
-      setMessages([{
-        role: 'assistant',
-        content: "Hello! I'm **Atlas**, your AI travel guide.\n\nTell me where you want to go, your mood, or budget — I'll craft the perfect journey for you.",
-      }]);
+      const newConv = res.data;
+      setActiveConvId(newConv.id);
+      loadedConvId.current = newConv.id;
+      setConversations(prev => [newConv, ...prev]);
+      setMessages([WELCOME_MSG]);
     } catch {
       toast.error('Failed to create conversation');
     }
@@ -140,30 +157,21 @@ export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
     if (!confirm('Delete this conversation?')) return;
     try {
       await deleteConversation(convId);
-      setConversations(prev => prev.filter(c => c.id !== convId));
+      const remaining = conversations.filter((c: any) => c.id !== convId);
+      setConversations(remaining);
       if (activeConvId === convId) {
-        const remaining = conversations.filter(c => c.id !== convId);
         if (remaining.length > 0) {
-          selectConversation(remaining[0].id);
+          await selectConversation(remaining[0].id, true);
         } else {
-          handleNewChat();
+          setActiveConvId(null);
+          loadedConvId.current = null;
+          setMessages([WELCOME_MSG]);
         }
       }
     } catch {
       toast.error('Failed to delete');
     }
   };
-
-  const saveMessages = useCallback(async (convId: string, msgs: Message[]) => {
-    if (!convId || !user) return;
-    try {
-      for (const msg of msgs) {
-        await saveChatMessage(convId, { role: msg.role, content: msg.content });
-      }
-    } catch {
-      // Silent fail
-    }
-  }, [user]);
 
   const handleSend = async (text: string) => {
     const userText = (text || input).trim();
@@ -174,14 +182,20 @@ export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
 
     // Auto-create conversation for signed-in users
     let convId = activeConvId;
+    let isNewConv = false;
+
     if (!convId && user) {
       try {
+        // Pass first_message so the backend saves it — we won't save it again below
         const res = await createConversation({ title: userText.slice(0, 50), first_message: userText });
         convId = res.data.id;
+        isNewConv = true;
         setActiveConvId(convId);
+        loadedConvId.current = convId;
         setConversations(prev => [res.data, ...prev]);
-      } catch { /* use guest mode */ }
-    } else if (convId && user) {
+      } catch { /* fall through to guest mode */ }
+    } else if (convId && user && !isNewConv) {
+      // Save user message before streaming
       try {
         await saveChatMessage(convId, { role: 'user', content: userText });
       } catch { /* silent */ }
@@ -223,15 +237,20 @@ export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
               return updated;
             });
             setLoading(false);
-            if (convId) {
+
+            if (convId && user) {
+              // Save assistant reply
               try {
                 await saveChatMessage(convId, { role: 'assistant', content: finalContent });
               } catch {}
-              if (conversations.find(c => c.id === convId)?.title === 'New Chat' && userText.length > 0) {
+
+              // Auto-update title if still "New Chat"
+              const conv = conversations.find((c: any) => c.id === convId);
+              if (conv?.title === 'New Chat' && userText.length > 0) {
                 const title = userText.length > 45 ? userText.slice(0, 45) + '...' : userText;
                 try {
                   await updateConversation(convId, title);
-                  setConversations(prev => prev.map(c => c.id === convId ? { ...c, title } : c));
+                  setConversations(prev => prev.map((c: any) => c.id === convId ? { ...c, title } : c));
                 } catch {}
               }
             }
@@ -257,14 +276,12 @@ export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
     if (activeConvId && user) {
       try {
         await deleteConversation(activeConvId);
-        setConversations(prev => prev.filter(c => c.id !== activeConvId));
+        setConversations(prev => prev.filter((c: any) => c.id !== activeConvId));
       } catch {}
     }
     setActiveConvId(null);
-    setMessages([{
-      role: 'assistant',
-      content: 'Chat cleared! Ask me anything about travel.',
-    }]);
+    loadedConvId.current = null;
+    setMessages([{ role: 'assistant', content: 'Chat cleared! Ask me anything about travel.' }]);
   };
 
   const isFirstMessage = messages.length <= 1 || (messages.length === 1 && messages[0].role === 'assistant');
@@ -298,12 +315,11 @@ export default function ChatBox({ initialConvId }: { initialConvId?: string }) {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-              {conversations.map(conv => (
+              {conversations.map((conv: any) => (
                 <div
                   key={conv.id}
                   onClick={() => {
                     selectConversation(conv.id);
-                    // Close sidebar on mobile after selection
                     if (window.innerWidth < 768) setSidebarOpen(false);
                   }}
                   className={cn(

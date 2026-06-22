@@ -22,6 +22,8 @@ class ShareCreate(BaseModel):
 @router.post("/trips")
 @limiter.limit("10/minute")
 async def create_share_link(request: Request, req: ShareCreate, user: dict = Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required")
     user_id = user.get("id")
 
     try:
